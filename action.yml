@@ -1,4 +1,4 @@
-name: 'AI Code Reviewer'
+name: 'Sarthak AI Code Reviewer'
 description: 'Reviews Pull Requests using OpenAI API'
 author: 'Antigravity'
 inputs:
