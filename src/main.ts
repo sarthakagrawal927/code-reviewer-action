@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import { GitHubClient, ReviewCommentInput } from './github';
+import { AIClient, ReviewFinding, ReviewSeverity } from './ai';
 
 type DiffLine = {
   line: number;
@@ -9,6 +10,13 @@ type DiffLine = {
 
 const MAX_COMMENTS_PER_REVIEW = 40;
 const MAX_LINE_PREVIEW_LENGTH = 160;
+const VALID_SEVERITIES: ReviewSeverity[] = ['low', 'medium', 'high', 'critical'];
+const SEVERITY_RANK: Record<ReviewSeverity, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  critical: 3
+};
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
@@ -96,9 +104,68 @@ function buildReviewComment(
   };
 }
 
+function parseBooleanInput(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
+
+function parseSeverityInput(value: string): ReviewSeverity {
+  const normalized = value.trim().toLowerCase();
+  if (!VALID_SEVERITIES.includes(normalized as ReviewSeverity)) {
+    throw new Error(`Invalid fail_on_severity "${value}". Use one of: ${VALID_SEVERITIES.join(', ')}`);
+  }
+
+  return normalized as ReviewSeverity;
+}
+
+function meetsSeverityThreshold(severity: ReviewSeverity, threshold: ReviewSeverity): boolean {
+  return SEVERITY_RANK[severity] >= SEVERITY_RANK[threshold];
+}
+
+function formatFindingLocation(finding: ReviewFinding): string {
+  if (finding.file && finding.line) {
+    return `${finding.file}:${finding.line}`;
+  }
+
+  if (finding.file) {
+    return finding.file;
+  }
+
+  return 'unknown location';
+}
+
+function buildBlockingFindingsComment(
+  findings: ReviewFinding[],
+  threshold: ReviewSeverity,
+  totalFindings: number
+): string {
+  const maxItems = 20;
+  const visibleFindings = findings.slice(0, maxItems);
+  const lines = visibleFindings.map(
+    (finding, index) =>
+      `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.title} (${formatFindingLocation(finding)}) - ${finding.summary}`
+  );
+
+  const overflow =
+    findings.length > maxItems ? `\n...and ${findings.length - maxItems} more blocking findings.` : '';
+
+  return [
+    '### Blocking Findings Detected',
+    `Threshold: \`${threshold}\``,
+    `Blocking findings: ${findings.length}/${totalFindings}`,
+    '',
+    ...lines,
+    overflow
+  ].join('\n');
+}
+
 async function run() {
   try {
+    const openaiApiKey = core.getInput('openai_api_key');
     const githubToken = core.getInput('github_token');
+    const model = core.getInput('model') || 'gpt-4-turbo';
+    const failOnFindings = parseBooleanInput(core.getInput('fail_on_findings') || 'false');
+    const failOnSeverity = parseSeverityInput(core.getInput('fail_on_severity') || 'high');
 
     const githubClient = new GitHubClient(githubToken);
 
@@ -171,6 +238,36 @@ async function run() {
       await githubClient.postComment(
         `Posted ${postedComments}/${comments.length} inline test comments. Some comments were skipped due to API validation errors.`
       );
+    }
+
+    if (failOnFindings) {
+      if (!openaiApiKey) {
+        throw new Error('fail_on_findings is enabled but openai_api_key is not set.');
+      }
+
+      const aiClient = new AIClient(openaiApiKey, model);
+      core.info(`Running AI findings analysis (threshold: ${failOnSeverity})...`);
+      const diff = await githubClient.getPRDiff();
+
+      if (!diff.trim()) {
+        core.info('No diff found for findings analysis.');
+      } else {
+        const findings = await aiClient.extractFindings(diff);
+        const blockingFindings = findings.filter(finding => meetsSeverityThreshold(finding.severity, failOnSeverity));
+
+        core.info(
+          `AI findings analysis completed: ${findings.length} total findings, ${blockingFindings.length} blocking findings.`
+        );
+
+        if (blockingFindings.length > 0) {
+          await githubClient.postComment(
+            buildBlockingFindingsComment(blockingFindings, failOnSeverity, findings.length)
+          );
+          throw new Error(
+            `Blocking AI findings detected: ${blockingFindings.length} at severity "${failOnSeverity}" or higher.`
+          );
+        }
+      }
     }
 
     core.info('Review completed successfully.');

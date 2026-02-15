@@ -42,6 +42,8 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           model: 'gpt-4-turbo' # Optional, default is gpt-4-turbo
+          fail_on_findings: 'true' # Optional, default false
+          fail_on_severity: 'high' # Optional: low|medium|high|critical
 ```
 
 ## Use in the Same Repository (No Hosting Required)
@@ -58,6 +60,8 @@ If you don't want to create a separate repository for this action, you can inclu
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_findings: 'true'
+          fail_on_severity: 'high'
 ```
 
 ## How to Host / Publish
@@ -101,6 +105,8 @@ If you want to make your action easily discoverable by others:
 | `openai_api_key` | Your OpenAI API Key | No | N/A |
 | `github_token` | GitHub Token (usually `${{ github.token }}`) | Yes | `${{ github.token }}` |
 | `model` | OpenAI Model to use | No | `gpt-4-turbo` |
+| `fail_on_findings` | Fail workflow when AI reports issues at or above threshold | No | `false` |
+| `fail_on_severity` | Severity threshold for failure mode (`low`,`medium`,`high`,`critical`) | No | `high` |
 
 ## Development
 

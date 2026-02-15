@@ -13,6 +13,14 @@ inputs:
     description: 'OpenAI Model to use'
     required: false
     default: 'gpt-4-turbo'
+  fail_on_findings:
+    description: 'Fail the workflow if AI finds issues at or above the severity threshold'
+    required: false
+    default: 'false'
+  fail_on_severity:
+    description: 'Severity threshold used when fail_on_findings is true (low|medium|high|critical)'
+    required: false
+    default: 'high'
 runs:
   using: 'node20'
   main: 'dist/index.js'
