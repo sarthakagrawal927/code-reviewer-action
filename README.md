@@ -1,14 +1,34 @@
 # AI Code Reviewer
 
-Public GitHub Action for PR reviews with a v0 Lite mode and a future-ready monorepo structure.
+Public GitHub Action for AI PR review.
 
-## Current Product Stages
+This repo currently ships **v0 Lite** and keeps a monorepo skeleton ready for **v1/v2**.
 
-- `v0 Lite` (implemented): BYOK, OpenAI-compatible gateway, diff-only review, summary + top inline findings.
-- `v1` (planned): hosted dashboard and rules platform.
-- `v2` (planned): codebase evolution intelligence.
+## v0 Lite (Shipped)
 
-## v0 Lite Quickstart
+`v0` is intentionally small and fast to adopt:
+
+- BYOK via OpenAI-compatible gateway (`ai_base_url` + `ai_api_key`)
+- Runs on pull requests, reviews only the PR diff
+- Posts one summary comment + top inline findings
+- No backend, no persistence, no app signup
+
+## Why v0 Looks Like This
+
+- **BYOK first**: avoids vendor lock-in and removes key-hosting liability for us.
+- **Diff-only scope**: faster runtime and lower token cost per PR.
+- **Summary + inline output**: keeps signal in-context for reviewers.
+- **Stateless architecture**: simplest install and lowest ops burden.
+- **Advisory default**: non-blocking by default, optional fail gate when teams are ready.
+
+## v0 Reliability and Quality Guards
+
+- Summary comment is **idempotent** (reruns update previous bot summary).
+- Gateway call has **retry + backoff** for transient errors.
+- Findings are filtered to be **changed-line grounded**.
+- Speculative/cosmetic rename-style suggestions are suppressed.
+
+## Quickstart
 
 ```yaml
 name: AI Review Lite
@@ -39,13 +59,14 @@ jobs:
 | --- | --- | --- | --- |
 | `github_token` | Yes | `${{ github.token }}` | GitHub token for PR read/comment APIs |
 | `ai_base_url` | No | `https://api.openai.com/v1` | OpenAI-compatible gateway base URL |
-| `ai_api_key` | Yes | N/A | Gateway key |
+| `ai_api_key` | Yes | N/A | Gateway API key |
 | `model` | No | `gpt-4o-mini` | Model id exposed by your gateway |
 | `max_inline_findings` | No | `5` | Upper limit for inline comments |
 | `min_inline_severity` | No | `medium` | `low|medium|high|critical` |
 | `review_tone` | No | `balanced` | `strict|balanced|friendly` |
 | `fail_on_findings` | No | `false` | Fail check if threshold is hit |
 | `fail_on_severity` | No | `high` | Threshold when `fail_on_findings=true` |
+| `gateway_max_retries` | No | `1` | Retry count for transient gateway failures (`0-3`) |
 
 ## Monorepo Layout
 
@@ -65,29 +86,17 @@ jobs:
 │   ├── api/
 │   └── review/
 └── docs/
-    ├── v0-lite.md
-    └── v2-roadmap.md
 ```
 
-## Development
-
-### Build
+## Build and Test
 
 ```bash
 npm run build
+npm test
 ```
 
-This builds shared packages first, then bundles the root action to `dist/index.js`.
-
-### Landing Page Preview
-
-```bash
-python3 -m http.server 4173 --directory apps/landing-page
-```
-
-Open `http://localhost:4173`.
-
-## Docs
+## Roadmap Docs
 
 - v0 details: `docs/v0-lite.md`
-- v2 roadmap: `docs/v2-roadmap.md`
+- v1 plan: `docs/v1-roadmap.md`
+- v2 plan: `docs/v2-roadmap.md`

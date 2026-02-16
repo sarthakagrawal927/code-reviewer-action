@@ -49,6 +49,13 @@ export function meetsSeverityThreshold(severity: ReviewSeverity, threshold: Revi
   return SEVERITY_RANK[severity] >= SEVERITY_RANK[threshold];
 }
 
+export function hasBlockingFindings(
+  findings: ReviewFinding[],
+  threshold: ReviewSeverity
+): boolean {
+  return findings.some(finding => meetsSeverityThreshold(finding.severity, threshold));
+}
+
 export function severityWeight(severity: ReviewSeverity): number {
   switch (severity) {
     case 'critical':

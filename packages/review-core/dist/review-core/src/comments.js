@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SUMMARY_COMMENT_MARKER = void 0;
 exports.buildSummaryComment = buildSummaryComment;
 exports.buildInlineFindingComment = buildInlineFindingComment;
 const findings_1 = require("./findings");
 const ORDERED_SEVERITIES = ['critical', 'high', 'medium', 'low'];
+exports.SUMMARY_COMMENT_MARKER = '<!-- ai-review-lite-summary -->';
 function formatFindingLine(finding) {
     const location = finding.filePath
         ? ` (${finding.filePath}${finding.line ? `:${finding.line}` : ''})`
@@ -45,6 +47,7 @@ function buildSummaryComment(findings, score, options) {
     const hiddenCount = Math.max(0, findings.length - shownCount);
     const body = sections.length > 0 ? sections.join('\n') : '_No significant findings from AI review._';
     return [
+        exports.SUMMARY_COMMENT_MARKER,
         '## AI Review Lite',
         '',
         `Scores: Q **${score.quality}** | R **${score.risk}** | V **${score.value}** | C **${score.composite}**`,

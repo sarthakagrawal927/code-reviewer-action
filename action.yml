@@ -36,6 +36,10 @@ inputs:
     description: 'Severity threshold for fail_on_findings (low|medium|high|critical)'
     required: false
     default: 'high'
+  gateway_max_retries:
+    description: 'Retry count for transient gateway failures (0-3)'
+    required: false
+    default: '1'
 runs:
   using: 'node20'
   main: 'dist/index.js'

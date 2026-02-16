@@ -3,15 +3,16 @@ import { AIGatewayClient } from '../packages/ai-gateway-client/src';
 import {
   GatewayConfig,
   GatewayReviewFile,
+  GatewayReviewRequest,
   REVIEW_SEVERITIES,
-  ReviewFinding,
   ReviewSeverity
 } from '../packages/shared-types/src';
 import {
+  SUMMARY_COMMENT_MARKER,
   buildSummaryComment,
   calculateScore,
   filterGroundedFindings,
-  meetsSeverityThreshold,
+  hasBlockingFindings,
   normalizeFindings,
   parseDiffFiles,
   selectInlineComments
@@ -20,6 +21,7 @@ import { GitHubClient } from './github';
 
 const MAX_COMMENTS_PER_REVIEW = 40;
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+const GATEWAY_RETRY_BASE_DELAY_MS = 1500;
 
 function parseBooleanInput(value: string): boolean {
   const normalized = value.trim().toLowerCase();
@@ -129,16 +131,50 @@ async function postInlineCommentsBestEffort(
   return posted;
 }
 
-function hasBlockingFindings(
-  findings: ReviewFinding[],
-  failOnFindings: boolean,
-  failOnSeverity: ReviewSeverity
-): boolean {
-  if (!failOnFindings) {
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableGatewayError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
     return false;
   }
 
-  return findings.some(finding => meetsSeverityThreshold(finding.severity, failOnSeverity));
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('timed out') ||
+    message.includes('fetch failed') ||
+    message.includes('network') ||
+    message.includes('econn') ||
+    message.includes('status 429') ||
+    message.includes('status 5')
+  );
+}
+
+async function reviewDiffWithRetry(
+  gatewayClient: AIGatewayClient,
+  request: GatewayReviewRequest,
+  maxRetries: number
+) {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await gatewayClient.reviewDiff(request);
+    } catch (error) {
+      if (!isRetryableGatewayError(error) || attempt >= maxRetries) {
+        throw error;
+      }
+
+      attempt += 1;
+      const delayMs = GATEWAY_RETRY_BASE_DELAY_MS * attempt;
+      core.warning(
+        `Gateway call failed (${error instanceof Error ? error.message : String(error)}). ` +
+          `Retrying ${attempt}/${maxRetries} after ${delayMs}ms...`
+      );
+      await sleep(delayMs);
+    }
+  }
 }
 
 async function run() {
@@ -161,6 +197,7 @@ async function run() {
       core.getInput('fail_on_severity') || 'high',
       'high'
     );
+    const gatewayMaxRetries = parseIntegerInput(core.getInput('gateway_max_retries') || '1', 1, 0, 3);
 
     const githubClient = new GitHubClient(githubToken);
 
@@ -172,7 +209,10 @@ async function run() {
     const diff = await githubClient.getPRDiff();
 
     if (!diff.trim()) {
-      await githubClient.postComment('## AI Review Lite Summary\n\nNo reviewable diff content was found in this PR.');
+      await githubClient.upsertCommentByMarker(
+        SUMMARY_COMMENT_MARKER,
+        `${SUMMARY_COMMENT_MARKER}\n## AI Review Lite\n\nNo reviewable diff content was found in this PR.`
+      );
       core.info('No diff content found, finished early.');
       return;
     }
@@ -180,14 +220,16 @@ async function run() {
     const gatewayClient = new AIGatewayClient(gatewayConfig);
     core.info(`Running gateway review with model ${gatewayConfig.model}...`);
 
-    const gatewayResponse = await gatewayClient.reviewDiff({
+    const reviewRequest: GatewayReviewRequest = {
       diff,
       files: gatewayFiles,
       context: {
         repoFullName: process.env.GITHUB_REPOSITORY,
         reviewTone: gatewayConfig.reviewTone
       }
-    });
+    };
+
+    const gatewayResponse = await reviewDiffWithRetry(gatewayClient, reviewRequest, gatewayMaxRetries);
 
     const parsedDiff = parseDiffFiles(gatewayFiles);
     const normalizedFindings = normalizeFindings(gatewayResponse.findings);
@@ -200,7 +242,7 @@ async function run() {
       reviewTone: gatewayConfig.reviewTone
     });
 
-    await githubClient.postComment(summaryComment);
+    await githubClient.upsertCommentByMarker(SUMMARY_COMMENT_MARKER, summaryComment);
 
     const inlineComments = selectInlineComments(findings, parsedDiff, {
       maxInlineFindings,
@@ -210,7 +252,7 @@ async function run() {
     const postedInline = await postInlineCommentsBestEffort(githubClient, inlineComments);
     core.info(`Posted ${postedInline}/${inlineComments.length} inline findings.`);
 
-    if (hasBlockingFindings(findings, failOnFindings, failOnSeverity)) {
+    if (failOnFindings && hasBlockingFindings(findings, failOnSeverity)) {
       throw new Error(
         `Blocking findings detected at severity \"${failOnSeverity}\" or above. Set fail_on_findings=false to keep advisory mode.`
       );

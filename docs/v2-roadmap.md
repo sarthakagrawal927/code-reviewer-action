@@ -1,52 +1,50 @@
 # v2 Roadmap: Codebase Evolution Intelligence
 
-v2 focuses on longitudinal code intelligence beyond point-in-time PR review.
+v2 extends v1 from point-in-time PR review to longitudinal intelligence across repositories, modules, and teams.
 
-## Objectives
+## Objective
 
-- Detect architecture drift over time.
-- Predict hotspots and instability before regressions happen.
-- Track ownership and review quality trends.
-- Introduce evolution-aware scoring guidance.
+Give teams a clear view of how code quality evolves over time, not only what is wrong in a single PR.
 
-## Core Capabilities
+## What v2 Adds
 
-- Evolution timelines per repository/module/file
-- Churn and risk hotspot maps
-- Regression links back to prior PRs and findings
-- Team quality velocity views
-- Rule recommendation engine based on historical outcomes
-- Per-repo changelog generation
+1. Architecture drift detection
+2. Hotspot prediction and instability alerts
+3. Ownership and review quality trends
+4. Evolution-aware scoring and guidance
+5. Changelog generation per repository
 
-## Planned Phases
+## Evolution Capabilities
 
-### Phase 1: Evolution Foundations
+- Evolution timeline per repo/module/file
+- Churn-risk maps and volatility tracking
+- Regression links from incidents back to prior PR decisions
+- Quality velocity trend per team/author
+- Rule recommendations tuned by observed repo behavior
 
-- Build ingestion and snapshot infrastructure.
-- Compute baseline evolution metrics and trend windows.
-- Expose core evolution APIs and dashboard views.
+## Per-Repo Changelog (Requested)
 
-### Phase 2: Repository Changelog Files
+Each connected repo gets a managed changelog file:
 
-- Automatically generate a changelog file for each connected repository.
-- Default target path: `.code-reviewer/CHANGELOG.md`.
-- Changelog content includes:
-  - PR score deltas and notable findings
-  - hotspot/module trend changes
-  - rule recommendation summaries
-- Update strategy:
-  - append/update on merged PRs
-  - open an automated PR with changelog updates when direct writes are disabled
+- Default path: `.code-reviewer/CHANGELOG.md`
+- Updated on merged PR windows
+- Includes:
+  - PR score movement
+  - key findings and repeated patterns
+  - hotspot/module trend deltas
+  - rule recommendation highlights
 
-## Planned Data Pipeline
+When direct pushes are not allowed, platform opens an automation PR with changelog updates.
 
-1. Ingest PR metadata and review output continuously.
-2. Build periodic repository snapshots.
-3. Compute file and module evolution metrics.
-4. Store vector context versions for temporal comparisons.
-5. Maintain rolling windows (7/30/90 day).
+## Data Pipeline
 
-## Planned Data Model Additions
+1. Ingest PR metadata, findings, scores, and changed hunks
+2. Build periodic code structure snapshots
+3. Compute file/module evolution metrics
+4. Maintain temporal context versions for “what changed since X”
+5. Compute rolling windows (7d, 30d, 90d)
+
+## Planned Data Model
 
 - `repo_snapshots`
 - `file_evolution_metrics`
@@ -56,7 +54,19 @@ v2 focuses on longitudinal code intelligence beyond point-in-time PR review.
 - `regression_links`
 - `score_versions`
 
-## Planned v2 APIs
+## v2 Scoring Model
+
+Add evolution-aware components:
+
+- `stability_score`
+- `maintainability_delta`
+- `review_effectiveness`
+
+Composite:
+
+`v2_composite = 0.30 quality + 0.20 (100-risk) + 0.20 value + 0.15 stability + 0.15 maintainability_delta`
+
+## v2 APIs
 
 - `GET /api/v2/repositories/:id/evolution/overview`
 - `GET /api/v2/repositories/:id/evolution/hotspots`
@@ -64,3 +74,12 @@ v2 focuses on longitudinal code intelligence beyond point-in-time PR review.
 - `GET /api/v2/repositories/:id/evolution/authors`
 - `POST /api/v2/repositories/:id/evolution/recompute`
 - `GET /api/v2/repositories/:id/rules/recommendations`
+
+## Product Surfaces
+
+- Dashboard Evolution tab
+  - hotspot map
+  - drift timeline
+  - PR quality velocity
+- Weekly health reports
+- Rule recommendation panel

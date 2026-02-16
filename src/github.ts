@@ -62,6 +62,41 @@ export class GitHubClient {
     });
   }
 
+  async upsertCommentByMarker(marker: string, body: string): Promise<void> {
+    const { owner, repo, pullNumber } = this.getPullRequestContext();
+
+    const comments = await this.octokit.paginate(this.octokit.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number: pullNumber,
+      per_page: 100
+    });
+
+    const existing = [...comments]
+      .reverse()
+      .find(comment => {
+        const commentBody = typeof comment.body === 'string' ? comment.body : '';
+        return commentBody.includes(marker);
+      });
+
+    if (existing) {
+      await this.octokit.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: existing.id,
+        body
+      });
+      return;
+    }
+
+    await this.octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pullNumber,
+      body
+    });
+  }
+
   async getPRFiles(): Promise<PRFile[]> {
     const { owner, repo, pullNumber } = this.getPullRequestContext();
 

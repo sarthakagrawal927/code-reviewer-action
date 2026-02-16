@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseSeverity = parseSeverity;
 exports.meetsSeverityThreshold = meetsSeverityThreshold;
+exports.hasBlockingFindings = hasBlockingFindings;
 exports.severityWeight = severityWeight;
 exports.sortBySeverity = sortBySeverity;
 exports.normalizeFindings = normalizeFindings;
@@ -44,6 +45,9 @@ function parseSeverity(value, fallback = 'medium') {
 }
 function meetsSeverityThreshold(severity, threshold) {
     return SEVERITY_RANK[severity] >= SEVERITY_RANK[threshold];
+}
+function hasBlockingFindings(findings, threshold) {
+    return findings.some(finding => meetsSeverityThreshold(finding.severity, threshold));
 }
 function severityWeight(severity) {
     switch (severity) {

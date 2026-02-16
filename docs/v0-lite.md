@@ -1,11 +1,21 @@
-# v0 Lite: BYOK Gateway Review
+# v0 Lite: BYOK Diff Review Action
 
-v0 Lite is a stateless GitHub Action mode.
+`v0 Lite` is a stateless GitHub Action intended for fast adoption.
 
-- Bring your own AI gateway key.
-- Review only the current PR diff.
-- Post one summary comment and top inline findings.
-- No dashboard or backend persistence required.
+## Design Choices
+
+- BYOK gateway config (`ai_base_url`, `ai_api_key`)
+- PR diff-only analysis (no repo-wide indexing)
+- Summary + top inline findings
+- No backend persistence
+- Advisory by default, optional fail gate
+
+## Behavior
+
+- Updates one existing summary comment on reruns (idempotent marker)
+- Retries transient gateway failures with backoff
+- Filters findings to changed-line grounded issues
+- Suppresses speculative/cosmetic rename suggestions
 
 ## Required Inputs
 
@@ -21,6 +31,7 @@ v0 Lite is a stateless GitHub Action mode.
 - `review_tone` (default `balanced`)
 - `fail_on_findings` (default `false`)
 - `fail_on_severity` (default `high`)
+- `gateway_max_retries` (default `1`, range `0-3`)
 
 ## Workflow Example
 
@@ -66,5 +77,3 @@ AI_BASE_URL=https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai
 ```text
 AI_BASE_URL=https://<your-bitfrost-host>/v1
 ```
-
-Use the same secret wiring for `AI_API_KEY` across all gateway options.

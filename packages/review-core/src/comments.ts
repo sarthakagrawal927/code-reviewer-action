@@ -2,6 +2,7 @@ import { ReviewFinding, ReviewScore, ReviewSeverity } from '../../shared-types/s
 import { sortBySeverity } from './findings';
 
 const ORDERED_SEVERITIES: ReviewSeverity[] = ['critical', 'high', 'medium', 'low'];
+export const SUMMARY_COMMENT_MARKER = '<!-- ai-review-lite-summary -->';
 
 function formatFindingLine(finding: ReviewFinding): string {
   const location = finding.filePath
@@ -57,6 +58,7 @@ export function buildSummaryComment(
   const body = sections.length > 0 ? sections.join('\n') : '_No significant findings from AI review._';
 
   return [
+    SUMMARY_COMMENT_MARKER,
     '## AI Review Lite',
     '',
     `Scores: Q **${score.quality}** | R **${score.risk}** | V **${score.value}** | C **${score.composite}**`,

@@ -30153,10 +30153,12 @@ async function reviewDiffWithOpenAICompatibleGateway(config, request) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.SUMMARY_COMMENT_MARKER = void 0;
 exports.buildSummaryComment = buildSummaryComment;
 exports.buildInlineFindingComment = buildInlineFindingComment;
 const findings_1 = __nccwpck_require__(5972);
 const ORDERED_SEVERITIES = ['critical', 'high', 'medium', 'low'];
+exports.SUMMARY_COMMENT_MARKER = '<!-- ai-review-lite-summary -->';
 function formatFindingLine(finding) {
     const location = finding.filePath
         ? ` (${finding.filePath}${finding.line ? `:${finding.line}` : ''})`
@@ -30198,6 +30200,7 @@ function buildSummaryComment(findings, score, options) {
     const hiddenCount = Math.max(0, findings.length - shownCount);
     const body = sections.length > 0 ? sections.join('\n') : '_No significant findings from AI review._';
     return [
+        exports.SUMMARY_COMMENT_MARKER,
         '## AI Review Lite',
         '',
         `Scores: Q **${score.quality}** | R **${score.risk}** | V **${score.value}** | C **${score.composite}**`,
@@ -30329,6 +30332,7 @@ function parseDiffFiles(files) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseSeverity = parseSeverity;
 exports.meetsSeverityThreshold = meetsSeverityThreshold;
+exports.hasBlockingFindings = hasBlockingFindings;
 exports.severityWeight = severityWeight;
 exports.sortBySeverity = sortBySeverity;
 exports.normalizeFindings = normalizeFindings;
@@ -30371,6 +30375,9 @@ function parseSeverity(value, fallback = 'medium') {
 }
 function meetsSeverityThreshold(severity, threshold) {
     return SEVERITY_RANK[severity] >= SEVERITY_RANK[threshold];
+}
+function hasBlockingFindings(findings, threshold) {
+    return findings.some(finding => meetsSeverityThreshold(finding.severity, threshold));
 }
 function severityWeight(severity) {
     switch (severity) {
@@ -30690,6 +30697,36 @@ class GitHubClient {
             body
         });
     }
+    async upsertCommentByMarker(marker, body) {
+        const { owner, repo, pullNumber } = this.getPullRequestContext();
+        const comments = await this.octokit.paginate(this.octokit.rest.issues.listComments, {
+            owner,
+            repo,
+            issue_number: pullNumber,
+            per_page: 100
+        });
+        const existing = [...comments]
+            .reverse()
+            .find(comment => {
+            const commentBody = typeof comment.body === 'string' ? comment.body : '';
+            return commentBody.includes(marker);
+        });
+        if (existing) {
+            await this.octokit.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body
+            });
+            return;
+        }
+        await this.octokit.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: pullNumber,
+            body
+        });
+    }
     async getPRFiles() {
         const { owner, repo, pullNumber } = this.getPullRequestContext();
         const { data: files } = await this.octokit.rest.pulls.listFiles({
@@ -30784,6 +30821,7 @@ const src_3 = __nccwpck_require__(3716);
 const github_1 = __nccwpck_require__(9248);
 const MAX_COMMENTS_PER_REVIEW = 40;
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+const GATEWAY_RETRY_BASE_DELAY_MS = 1500;
 function parseBooleanInput(value) {
     const normalized = value.trim().toLowerCase();
     return ['1', 'true', 'yes', 'on'].includes(normalized);
@@ -30868,11 +30906,38 @@ async function postInlineCommentsBestEffort(githubClient, comments) {
     }
     return posted;
 }
-function hasBlockingFindings(findings, failOnFindings, failOnSeverity) {
-    if (!failOnFindings) {
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+function isRetryableGatewayError(error) {
+    if (!(error instanceof Error)) {
         return false;
     }
-    return findings.some(finding => (0, src_3.meetsSeverityThreshold)(finding.severity, failOnSeverity));
+    const message = error.message.toLowerCase();
+    return (message.includes('timed out') ||
+        message.includes('fetch failed') ||
+        message.includes('network') ||
+        message.includes('econn') ||
+        message.includes('status 429') ||
+        message.includes('status 5'));
+}
+async function reviewDiffWithRetry(gatewayClient, request, maxRetries) {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await gatewayClient.reviewDiff(request);
+        }
+        catch (error) {
+            if (!isRetryableGatewayError(error) || attempt >= maxRetries) {
+                throw error;
+            }
+            attempt += 1;
+            const delayMs = GATEWAY_RETRY_BASE_DELAY_MS * attempt;
+            core.warning(`Gateway call failed (${error instanceof Error ? error.message : String(error)}). ` +
+                `Retrying ${attempt}/${maxRetries} after ${delayMs}ms...`);
+            await sleep(delayMs);
+        }
+    }
 }
 async function run() {
     try {
@@ -30885,6 +30950,7 @@ async function run() {
         const minInlineSeverity = parseSeverityInput('min_inline_severity', core.getInput('min_inline_severity') || 'medium', 'medium');
         const failOnFindings = parseBooleanInput(core.getInput('fail_on_findings') || 'false');
         const failOnSeverity = parseSeverityInput('fail_on_severity', core.getInput('fail_on_severity') || 'high', 'high');
+        const gatewayMaxRetries = parseIntegerInput(core.getInput('gateway_max_retries') || '1', 1, 0, 3);
         const githubClient = new github_1.GitHubClient(githubToken);
         core.info('Fetching PR files...');
         const files = await githubClient.getPRFiles();
@@ -30892,20 +30958,21 @@ async function run() {
         core.info('Fetching PR diff...');
         const diff = await githubClient.getPRDiff();
         if (!diff.trim()) {
-            await githubClient.postComment('## AI Review Lite Summary\n\nNo reviewable diff content was found in this PR.');
+            await githubClient.upsertCommentByMarker(src_3.SUMMARY_COMMENT_MARKER, `${src_3.SUMMARY_COMMENT_MARKER}\n## AI Review Lite\n\nNo reviewable diff content was found in this PR.`);
             core.info('No diff content found, finished early.');
             return;
         }
         const gatewayClient = new src_1.AIGatewayClient(gatewayConfig);
         core.info(`Running gateway review with model ${gatewayConfig.model}...`);
-        const gatewayResponse = await gatewayClient.reviewDiff({
+        const reviewRequest = {
             diff,
             files: gatewayFiles,
             context: {
                 repoFullName: process.env.GITHUB_REPOSITORY,
                 reviewTone: gatewayConfig.reviewTone
             }
-        });
+        };
+        const gatewayResponse = await reviewDiffWithRetry(gatewayClient, reviewRequest, gatewayMaxRetries);
         const parsedDiff = (0, src_3.parseDiffFiles)(gatewayFiles);
         const normalizedFindings = (0, src_3.normalizeFindings)(gatewayResponse.findings);
         const findings = (0, src_3.filterGroundedFindings)(normalizedFindings, parsedDiff, { requireChangedLine: true });
@@ -30914,14 +30981,14 @@ async function run() {
         const summaryComment = (0, src_3.buildSummaryComment)(findings, score, {
             reviewTone: gatewayConfig.reviewTone
         });
-        await githubClient.postComment(summaryComment);
+        await githubClient.upsertCommentByMarker(src_3.SUMMARY_COMMENT_MARKER, summaryComment);
         const inlineComments = (0, src_3.selectInlineComments)(findings, parsedDiff, {
             maxInlineFindings,
             minInlineSeverity
         });
         const postedInline = await postInlineCommentsBestEffort(githubClient, inlineComments);
         core.info(`Posted ${postedInline}/${inlineComments.length} inline findings.`);
-        if (hasBlockingFindings(findings, failOnFindings, failOnSeverity)) {
+        if (failOnFindings && (0, src_3.hasBlockingFindings)(findings, failOnSeverity)) {
             throw new Error(`Blocking findings detected at severity \"${failOnSeverity}\" or above. Set fail_on_findings=false to keep advisory mode.`);
         }
         core.info('AI Review Lite completed successfully.');

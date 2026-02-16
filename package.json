@@ -14,7 +14,7 @@
     "build:gateway": "npm run -w packages/ai-gateway-client build",
     "build:packages": "npm run build:types && npm run build:review-core && npm run build:gateway",
     "build": "npm run build:packages && ncc build src/main.ts -o dist",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run build:packages && node --test tests/*.test.cjs"
   },
   "keywords": [],
   "author": "",
