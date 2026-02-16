@@ -29952,7 +29952,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.reviewDiffWithOpenAICompatibleGateway = reviewDiffWithOpenAICompatibleGateway;
 const src_1 = __nccwpck_require__(7527);
 const MAX_DIFF_CHARS = 120000;
-const REQUEST_TIMEOUT_MS = 60000;
+const REQUEST_TIMEOUT_MS = 120000;
 const MAX_TITLE_CHARS = 80;
 const MAX_SUMMARY_CHARS = 180;
 function normalizeBaseUrl(baseUrl) {
@@ -30097,7 +30097,7 @@ async function reviewDiffWithOpenAICompatibleGateway(config, request) {
     }
     catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error('Gateway request timed out after 60 seconds.');
+            throw new Error(`Gateway request timed out after ${Math.floor(REQUEST_TIMEOUT_MS / 1000)} seconds.`);
         }
         throw new Error(`Gateway request failed: ${String(error)}`);
     }
