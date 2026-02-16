@@ -30043,6 +30043,9 @@ function buildPrompt(request, truncated) {
         '{"findings":[{"severity":"low|medium|high|critical","title":"...","summary":"...","filePath":"...","line":123,"confidence":0.0}]}',
         'Rules:',
         '- Findings must be concrete and evidence-based.',
+        '- Report only issues directly grounded in changed lines from this diff.',
+        '- If you cannot anchor a finding to a specific changed line, omit it.',
+        '- Do not suggest cosmetic renames or data-model renames/migrations unless diff shows a concrete bug.',
         '- Use higher severity only for significant risk.',
         '- Use filePath and line when possible.',
         '- Keep title concise (max 12 words).',
@@ -30329,6 +30332,7 @@ exports.meetsSeverityThreshold = meetsSeverityThreshold;
 exports.severityWeight = severityWeight;
 exports.sortBySeverity = sortBySeverity;
 exports.normalizeFindings = normalizeFindings;
+exports.filterGroundedFindings = filterGroundedFindings;
 const src_1 = __nccwpck_require__(7527);
 const SEVERITY_RANK = {
     low: 0,
@@ -30336,6 +30340,29 @@ const SEVERITY_RANK = {
     high: 2,
     critical: 3
 };
+const SPECULATIVE_PATTERN = /\b(might|maybe|perhaps|could|likely|seems|appears|consider)\b/i;
+const COSMETIC_RENAME_PATTERN = /\b(rename|renaming|naming|wording|terminology|cosmetic|consistency)\b/i;
+const DATA_MODEL_PATTERN = /\b(collection|table|schema|column|field|index|migration)\b/i;
+function normalizePath(path) {
+    return path.trim().replace(/^\.?\//, '');
+}
+function isLowOrMedium(finding) {
+    return finding.severity === 'low' || finding.severity === 'medium';
+}
+function isLikelySpeculative(finding) {
+    if (!isLowOrMedium(finding)) {
+        return false;
+    }
+    const text = `${finding.title} ${finding.summary}`;
+    return SPECULATIVE_PATTERN.test(text);
+}
+function isLikelyCosmeticRenameSuggestion(finding) {
+    if (!isLowOrMedium(finding)) {
+        return false;
+    }
+    const text = `${finding.title} ${finding.summary}`;
+    return COSMETIC_RENAME_PATTERN.test(text) && DATA_MODEL_PATTERN.test(text);
+}
 function parseSeverity(value, fallback = 'medium') {
     const normalized = value.trim().toLowerCase();
     return src_1.REVIEW_SEVERITIES.includes(normalized)
@@ -30383,7 +30410,7 @@ function normalizeFindings(rawFindings) {
             severity,
             title,
             summary,
-            filePath: raw.filePath?.trim() || undefined,
+            filePath: raw.filePath ? normalizePath(raw.filePath) : undefined,
             line: typeof raw.line === 'number' && Number.isInteger(raw.line) && raw.line > 0 ? raw.line : undefined,
             confidence: typeof raw.confidence === 'number' && Number.isFinite(raw.confidence)
                 ? Math.max(0, Math.min(1, raw.confidence))
@@ -30401,6 +30428,23 @@ function normalizeFindings(rawFindings) {
         }
     }
     return sortBySeverity(Array.from(deduped.values()));
+}
+function filterGroundedFindings(findings, parsedDiff, options = {}) {
+    const requireChangedLine = options.requireChangedLine ?? true;
+    return findings.filter(finding => {
+        if (isLikelySpeculative(finding) || isLikelyCosmeticRenameSuggestion(finding)) {
+            return false;
+        }
+        if (!requireChangedLine) {
+            return true;
+        }
+        if (!finding.filePath || !finding.line) {
+            return false;
+        }
+        const path = normalizePath(finding.filePath);
+        const sideMap = parsedDiff.lineSideIndex.get(path);
+        return !!sideMap?.has(finding.line);
+    });
 }
 
 
@@ -30862,10 +30906,11 @@ async function run() {
                 reviewTone: gatewayConfig.reviewTone
             }
         });
-        const findings = (0, src_3.normalizeFindings)(gatewayResponse.findings);
         const parsedDiff = (0, src_3.parseDiffFiles)(gatewayFiles);
+        const normalizedFindings = (0, src_3.normalizeFindings)(gatewayResponse.findings);
+        const findings = (0, src_3.filterGroundedFindings)(normalizedFindings, parsedDiff, { requireChangedLine: true });
         const score = (0, src_3.calculateScore)(gatewayFiles, findings);
-        core.info(`Found ${findings.length} normalized findings.`);
+        core.info(`Found ${normalizedFindings.length} normalized findings; kept ${findings.length} grounded findings.`);
         const summaryComment = (0, src_3.buildSummaryComment)(findings, score, {
             reviewTone: gatewayConfig.reviewTone
         });

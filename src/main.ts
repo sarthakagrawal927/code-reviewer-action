@@ -10,6 +10,7 @@ import {
 import {
   buildSummaryComment,
   calculateScore,
+  filterGroundedFindings,
   meetsSeverityThreshold,
   normalizeFindings,
   parseDiffFiles,
@@ -188,11 +189,12 @@ async function run() {
       }
     });
 
-    const findings = normalizeFindings(gatewayResponse.findings);
     const parsedDiff = parseDiffFiles(gatewayFiles);
+    const normalizedFindings = normalizeFindings(gatewayResponse.findings);
+    const findings = filterGroundedFindings(normalizedFindings, parsedDiff, { requireChangedLine: true });
     const score = calculateScore(gatewayFiles, findings);
 
-    core.info(`Found ${findings.length} normalized findings.`);
+    core.info(`Found ${normalizedFindings.length} normalized findings; kept ${findings.length} grounded findings.`);
 
     const summaryComment = buildSummaryComment(findings, score, {
       reviewTone: gatewayConfig.reviewTone
