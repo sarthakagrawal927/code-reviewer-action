@@ -7,7 +7,7 @@ function formatFindingLine(finding: ReviewFinding): string {
   const location = finding.filePath
     ? ` (${finding.filePath}${finding.line ? `:${finding.line}` : ''})`
     : '';
-  return `- **${finding.title}**${location}: ${finding.summary}`;
+  return `- [${finding.severity.toUpperCase()}] ${finding.title}${location} - ${finding.summary}`;
 }
 
 export function buildSummaryComment(
@@ -16,14 +16,18 @@ export function buildSummaryComment(
   options: { reviewTone: string; maxFindingsPerSeverity?: number }
 ): string {
   const sorted = sortBySeverity(findings);
-  const maxPerSeverity = options.maxFindingsPerSeverity ?? 5;
+  const maxPerSeverity = options.maxFindingsPerSeverity ?? 2;
 
   const grouped = new Map<ReviewSeverity, ReviewFinding[]>();
+  const totals = new Map<ReviewSeverity, number>();
   for (const severity of ORDERED_SEVERITIES) {
     grouped.set(severity, []);
+    totals.set(severity, 0);
   }
 
   for (const finding of sorted) {
+    totals.set(finding.severity, (totals.get(finding.severity) ?? 0) + 1);
+
     const bucket = grouped.get(finding.severity);
     if (!bucket) {
       continue;
@@ -35,31 +39,30 @@ export function buildSummaryComment(
   }
 
   const sections: string[] = [];
+  let shownCount = 0;
   for (const severity of ORDERED_SEVERITIES) {
     const severityFindings = grouped.get(severity) ?? [];
     if (severityFindings.length === 0) {
       continue;
     }
 
-    sections.push(`#### ${severity.toUpperCase()} (${severityFindings.length})`);
+    shownCount += severityFindings.length;
+    const totalForSeverity = totals.get(severity) ?? severityFindings.length;
+    sections.push(`### ${severity.toUpperCase()} (${severityFindings.length}/${totalForSeverity})`);
     sections.push(...severityFindings.map(formatFindingLine));
     sections.push('');
   }
 
+  const hiddenCount = Math.max(0, findings.length - shownCount);
   const body = sections.length > 0 ? sections.join('\n') : '_No significant findings from AI review._';
 
   return [
-    '## AI Review Lite Summary',
+    '## AI Review Lite',
     '',
-    `Tone: \`${options.reviewTone}\``,
+    `Scores: Q **${score.quality}** | R **${score.risk}** | V **${score.value}** | C **${score.composite}**`,
+    `Findings: **${findings.length}** total`,
     '',
-    '| Score | Value |',
-    '| --- | --- |',
-    `| Quality | **${score.quality}** |`,
-    `| Risk | **${score.risk}** |`,
-    `| Value | **${score.value}** |`,
-    `| Composite | **${score.composite}** |`,
-    '',
+    hiddenCount > 0 ? `_Showing top ${shownCount}; ${hiddenCount} additional finding(s) omitted for brevity._` : '',
     body,
     '',
     `score_footer: quality=${score.quality};risk=${score.risk};value=${score.value};composite=${score.composite}`
@@ -67,13 +70,8 @@ export function buildSummaryComment(
 }
 
 export function buildInlineFindingComment(finding: ReviewFinding, index: number, total: number): string {
-  const location = finding.filePath && finding.line ? `${finding.filePath}:${finding.line}` : 'unknown location';
   return [
-    `AI finding ${index}/${total}`,
-    `Severity: **${finding.severity.toUpperCase()}**`,
-    `Location: ${location}`,
-    '',
-    `**${finding.title}**`,
-    finding.summary
+    `AI finding ${index}/${total}: **[${finding.severity.toUpperCase()}] ${finding.title}**`,
+    finding.summary,
   ].join('\n');
 }

@@ -4,6 +4,8 @@ exports.reviewDiffWithOpenAICompatibleGateway = reviewDiffWithOpenAICompatibleGa
 const src_1 = require("../../shared-types/src");
 const MAX_DIFF_CHARS = 120000;
 const REQUEST_TIMEOUT_MS = 60000;
+const MAX_TITLE_CHARS = 80;
+const MAX_SUMMARY_CHARS = 180;
 function normalizeBaseUrl(baseUrl) {
     const trimmed = baseUrl.trim();
     if (!trimmed) {
@@ -39,14 +41,31 @@ function normalizeSeverity(value) {
     const severity = value.trim().toLowerCase();
     return src_1.REVIEW_SEVERITIES.includes(severity) ? severity : null;
 }
+function compactWhitespace(value) {
+    return value.replace(/\s+/g, ' ').trim();
+}
+function truncateText(value, maxChars) {
+    if (value.length <= maxChars) {
+        return value;
+    }
+    const clipped = value.slice(0, maxChars - 3).trimEnd();
+    const lastSpace = clipped.lastIndexOf(' ');
+    const safeCutoff = Math.floor(maxChars * 0.6);
+    const compact = lastSpace >= safeCutoff ? clipped.slice(0, lastSpace) : clipped;
+    return `${compact}...`;
+}
 function coerceFinding(raw) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
     const item = raw;
     const severity = normalizeSeverity(item.severity);
-    const title = typeof item.title === 'string' ? item.title.trim() : '';
-    const summary = typeof item.summary === 'string' ? item.summary.trim() : '';
+    const title = typeof item.title === 'string'
+        ? truncateText(compactWhitespace(item.title), MAX_TITLE_CHARS)
+        : '';
+    const summary = typeof item.summary === 'string'
+        ? truncateText(compactWhitespace(item.summary), MAX_SUMMARY_CHARS)
+        : '';
     if (!severity || !title || !summary) {
         return null;
     }
@@ -77,6 +96,9 @@ function buildPrompt(request, truncated) {
         '- Findings must be concrete and evidence-based.',
         '- Use higher severity only for significant risk.',
         '- Use filePath and line when possible.',
+        '- Keep title concise (max 12 words).',
+        '- Keep summary concise (max 28 words).',
+        '- Avoid filler text, disclaimers, and repetition.',
         '- confidence must be between 0 and 1.',
         truncated ? '- Note: diff content was truncated for token safety.' : '',
         '',
@@ -113,7 +135,7 @@ async function reviewDiffWithOpenAICompatibleGateway(config, request) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a senior code reviewer. Return strict JSON only in the requested schema and avoid speculative findings.'
+                        content: 'You are a senior code reviewer. Return strict JSON only in the requested schema, avoid speculative findings, and keep wording concise.'
                     },
                     {
                         role: 'user',

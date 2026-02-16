@@ -29953,6 +29953,8 @@ exports.reviewDiffWithOpenAICompatibleGateway = reviewDiffWithOpenAICompatibleGa
 const src_1 = __nccwpck_require__(7527);
 const MAX_DIFF_CHARS = 120000;
 const REQUEST_TIMEOUT_MS = 60000;
+const MAX_TITLE_CHARS = 80;
+const MAX_SUMMARY_CHARS = 180;
 function normalizeBaseUrl(baseUrl) {
     const trimmed = baseUrl.trim();
     if (!trimmed) {
@@ -29988,14 +29990,31 @@ function normalizeSeverity(value) {
     const severity = value.trim().toLowerCase();
     return src_1.REVIEW_SEVERITIES.includes(severity) ? severity : null;
 }
+function compactWhitespace(value) {
+    return value.replace(/\s+/g, ' ').trim();
+}
+function truncateText(value, maxChars) {
+    if (value.length <= maxChars) {
+        return value;
+    }
+    const clipped = value.slice(0, maxChars - 3).trimEnd();
+    const lastSpace = clipped.lastIndexOf(' ');
+    const safeCutoff = Math.floor(maxChars * 0.6);
+    const compact = lastSpace >= safeCutoff ? clipped.slice(0, lastSpace) : clipped;
+    return `${compact}...`;
+}
 function coerceFinding(raw) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
     const item = raw;
     const severity = normalizeSeverity(item.severity);
-    const title = typeof item.title === 'string' ? item.title.trim() : '';
-    const summary = typeof item.summary === 'string' ? item.summary.trim() : '';
+    const title = typeof item.title === 'string'
+        ? truncateText(compactWhitespace(item.title), MAX_TITLE_CHARS)
+        : '';
+    const summary = typeof item.summary === 'string'
+        ? truncateText(compactWhitespace(item.summary), MAX_SUMMARY_CHARS)
+        : '';
     if (!severity || !title || !summary) {
         return null;
     }
@@ -30026,6 +30045,9 @@ function buildPrompt(request, truncated) {
         '- Findings must be concrete and evidence-based.',
         '- Use higher severity only for significant risk.',
         '- Use filePath and line when possible.',
+        '- Keep title concise (max 12 words).',
+        '- Keep summary concise (max 28 words).',
+        '- Avoid filler text, disclaimers, and repetition.',
         '- confidence must be between 0 and 1.',
         truncated ? '- Note: diff content was truncated for token safety.' : '',
         '',
@@ -30062,7 +30084,7 @@ async function reviewDiffWithOpenAICompatibleGateway(config, request) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a senior code reviewer. Return strict JSON only in the requested schema and avoid speculative findings.'
+                        content: 'You are a senior code reviewer. Return strict JSON only in the requested schema, avoid speculative findings, and keep wording concise.'
                     },
                     {
                         role: 'user',
@@ -30136,16 +30158,19 @@ function formatFindingLine(finding) {
     const location = finding.filePath
         ? ` (${finding.filePath}${finding.line ? `:${finding.line}` : ''})`
         : '';
-    return `- **${finding.title}**${location}: ${finding.summary}`;
+    return `- [${finding.severity.toUpperCase()}] ${finding.title}${location} - ${finding.summary}`;
 }
 function buildSummaryComment(findings, score, options) {
     const sorted = (0, findings_1.sortBySeverity)(findings);
-    const maxPerSeverity = options.maxFindingsPerSeverity ?? 5;
+    const maxPerSeverity = options.maxFindingsPerSeverity ?? 2;
     const grouped = new Map();
+    const totals = new Map();
     for (const severity of ORDERED_SEVERITIES) {
         grouped.set(severity, []);
+        totals.set(severity, 0);
     }
     for (const finding of sorted) {
+        totals.set(finding.severity, (totals.get(finding.severity) ?? 0) + 1);
         const bucket = grouped.get(finding.severity);
         if (!bucket) {
             continue;
@@ -30155,42 +30180,36 @@ function buildSummaryComment(findings, score, options) {
         }
     }
     const sections = [];
+    let shownCount = 0;
     for (const severity of ORDERED_SEVERITIES) {
         const severityFindings = grouped.get(severity) ?? [];
         if (severityFindings.length === 0) {
             continue;
         }
-        sections.push(`#### ${severity.toUpperCase()} (${severityFindings.length})`);
+        shownCount += severityFindings.length;
+        const totalForSeverity = totals.get(severity) ?? severityFindings.length;
+        sections.push(`### ${severity.toUpperCase()} (${severityFindings.length}/${totalForSeverity})`);
         sections.push(...severityFindings.map(formatFindingLine));
         sections.push('');
     }
+    const hiddenCount = Math.max(0, findings.length - shownCount);
     const body = sections.length > 0 ? sections.join('\n') : '_No significant findings from AI review._';
     return [
-        '## AI Review Lite Summary',
+        '## AI Review Lite',
         '',
-        `Tone: \`${options.reviewTone}\``,
+        `Scores: Q **${score.quality}** | R **${score.risk}** | V **${score.value}** | C **${score.composite}**`,
+        `Findings: **${findings.length}** total`,
         '',
-        '| Score | Value |',
-        '| --- | --- |',
-        `| Quality | **${score.quality}** |`,
-        `| Risk | **${score.risk}** |`,
-        `| Value | **${score.value}** |`,
-        `| Composite | **${score.composite}** |`,
-        '',
+        hiddenCount > 0 ? `_Showing top ${shownCount}; ${hiddenCount} additional finding(s) omitted for brevity._` : '',
         body,
         '',
         `score_footer: quality=${score.quality};risk=${score.risk};value=${score.value};composite=${score.composite}`
     ].join('\n');
 }
 function buildInlineFindingComment(finding, index, total) {
-    const location = finding.filePath && finding.line ? `${finding.filePath}:${finding.line}` : 'unknown location';
     return [
-        `AI finding ${index}/${total}`,
-        `Severity: **${finding.severity.toUpperCase()}**`,
-        `Location: ${location}`,
-        '',
-        `**${finding.title}**`,
-        finding.summary
+        `AI finding ${index}/${total}: **[${finding.severity.toUpperCase()}] ${finding.title}**`,
+        finding.summary,
     ].join('\n');
 }
 
