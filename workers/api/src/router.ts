@@ -1,16 +1,19 @@
 import {
   DriftCheckInput,
+  DriftSignal,
   GitHubWebhookEnvelope,
   OrganizationMemberRecord,
   RepositoryRuleConfig,
   ReviewRunRecord,
 } from '@code-reviewer/shared-types';
+import { GitHubApiError, GitHubClient } from './github';
 import { HttpContext, HttpResponse } from './http';
 import { InMemoryApiStore } from './store';
 
 type RouterDeps = {
   store: InMemoryApiStore;
   authToken?: string;
+  githubClient?: GitHubClient;
 };
 
 function requireAuth(context: HttpContext, authToken?: string): HttpResponse | null {
@@ -152,6 +155,50 @@ function parseDriftCheckInput(body: unknown): DriftCheckInput {
   };
 }
 
+function buildDriftSignals(
+  input: DriftCheckInput,
+  observed: {
+    repositoryCount: number;
+    memberCount: number;
+    installationIds: string[];
+  }
+): DriftSignal[] {
+  const signals: DriftSignal[] = [];
+
+  if (
+    typeof input.expectedRepositoryCount === 'number' &&
+    input.expectedRepositoryCount !== observed.repositoryCount
+  ) {
+    signals.push({
+      code: 'repository_count_mismatch',
+      message: `Expected ${input.expectedRepositoryCount} repos but found ${observed.repositoryCount} from GitHub.`,
+    });
+  }
+
+  if (
+    typeof input.expectedMemberCount === 'number' &&
+    input.expectedMemberCount !== observed.memberCount
+  ) {
+    signals.push({
+      code: 'member_count_mismatch',
+      message: `Expected ${input.expectedMemberCount} members but found ${observed.memberCount} from GitHub.`,
+    });
+  }
+
+  if (input.expectedInstallationId) {
+    if (!observed.installationIds.includes(input.expectedInstallationId)) {
+      signals.push({
+        code: 'installation_mismatch',
+        message: observed.installationIds.length
+          ? `Expected installation ${input.expectedInstallationId} but GitHub returned [${observed.installationIds.join(', ')}].`
+          : `Expected installation ${input.expectedInstallationId}, but installation id could not be verified from GitHub.`,
+      });
+    }
+  }
+
+  return signals;
+}
+
 export async function routeRequest(context: HttpContext, deps: RouterDeps): Promise<HttpResponse> {
   const unauthorized = requireAuth(context, deps.authToken);
   if (unauthorized) {
@@ -276,18 +323,61 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
 
   if (orgDriftCheckMatch && context.method === 'POST') {
     const organizationId = orgDriftCheckMatch[1];
-    if (!deps.store.getOrganization(organizationId)) {
+    const organization = deps.store.getOrganization(organizationId);
+    if (!organization) {
       return {
         status: 404,
         body: { error: 'organization_not_found', message: `Unknown organization: ${organizationId}` },
       };
     }
 
-    const driftCheck = deps.store.runDriftCheck(organizationId, parseDriftCheckInput(context.body));
+    if (!deps.githubClient) {
+      return {
+        status: 503,
+        body: {
+          error: 'github_drift_check_not_configured',
+          message:
+            'Missing GitHub token for live drift checks. Set GITHUB_DRIFT_CHECK_TOKEN (or GITHUB_APP_INSTALLATION_TOKEN).',
+        },
+      };
+    }
+
+    const input = parseDriftCheckInput(context.body);
+    let snapshot: Awaited<ReturnType<GitHubClient['getOrganizationSnapshot']>>;
+    try {
+      snapshot = await deps.githubClient.getOrganizationSnapshot(organization.slug);
+    } catch (error) {
+      const statusCode = error instanceof GitHubApiError && error.statusCode ? error.statusCode : 502;
+      return {
+        status: statusCode,
+        body: {
+          error: 'github_drift_check_failed',
+          message: error instanceof Error ? error.message : 'Unknown GitHub API error.',
+        },
+      };
+    }
+
+    const signals = buildDriftSignals(input, {
+      repositoryCount: snapshot.repositoryCount,
+      memberCount: snapshot.memberCount,
+      installationIds: snapshot.installationIds,
+    });
+    const driftCheck = deps.store.saveDriftCheck({
+      organizationId,
+      expectedRepositoryCount: input.expectedRepositoryCount,
+      expectedMemberCount: input.expectedMemberCount,
+      expectedInstallationId: input.expectedInstallationId,
+      observedRepositoryCount: snapshot.repositoryCount,
+      observedMemberCount: snapshot.memberCount,
+      observedInstallationIds: snapshot.installationIds,
+      driftDetected: signals.length > 0,
+      signals,
+    });
     return {
       status: 200,
       body: {
         driftCheck,
+        source: 'github_live',
         recommendation: driftCheck.driftDetected ? 'reconcile' : 'none',
       },
     };

@@ -36,10 +36,12 @@ Optional env vars:
 - `API_WORKER_HOST` (default `127.0.0.1`)
 - `API_WORKER_PORT` (default `8080`)
 - `API_WORKER_AUTH_TOKEN` (if set, requires `Authorization: Bearer <token>`)
+- `GITHUB_API_BASE_URL` (default `https://api.github.com`)
+- `GITHUB_DRIFT_CHECK_TOKEN` (required for live GitHub drift check endpoint)
 
 ## Next Integration Steps
 
 1. Replace in-memory store with Postgres adapter.
-2. Add GitHub App signature verification in `/webhooks/github`.
+2. Replace static token env with GitHub App installation token mint/refresh flow.
 3. Publish review/index jobs to durable queue.
 4. Add authN/authZ for workspaces and org membership.

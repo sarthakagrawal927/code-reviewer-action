@@ -83,6 +83,7 @@ Use this file as the decision log for v1 implementation.
 - Decision:
   - v1: no automatic reconcile loop.
   - v1: expose manual drift check action from dashboard/API.
+  - v1 drift check uses live GitHub API reads (repo/member/install snapshot), not local cache-derived counts.
   - reconcile is user-triggered only, and only after drift is detected (unless force-triggered).
   - periodic automatic reconcile remains deferred to v1.1.
 

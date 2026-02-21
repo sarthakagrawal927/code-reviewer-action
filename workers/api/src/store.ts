@@ -1,7 +1,5 @@
 import {
-  DriftCheckInput,
   DriftCheckRecord,
-  DriftSignal,
   GitHubWebhookEnvelope,
   OrganizationMemberRecord,
   OrganizationRecord,
@@ -134,83 +132,19 @@ export class InMemoryApiStore {
     return repositoryId ? values.filter(item => item.repositoryId === repositoryId) : values;
   }
 
-  runDriftCheck(organizationId: string, input: DriftCheckInput): DriftCheckRecord {
-    const organization = this.organizations.get(organizationId);
-    if (!organization) {
-      throw new Error(`Organization not found: ${organizationId}`);
-    }
-
-    const observedRepositoryCount = this.listRepositoriesByOrganization(organizationId).length;
-    const observedMemberCount = this.listOrganizationMembers(organizationId).length;
-    const observedInstallationIds = Array.from(
-      new Set(
-        this.listRepositoriesByOrganization(organizationId)
-          .map(repository => repository.installationId?.trim())
-          .concat(organization.githubInstallationId?.trim())
-          .filter((value): value is string => Boolean(value))
-      )
-    );
-
-    const signals: DriftSignal[] = [];
-
-    if (
-      typeof input.expectedRepositoryCount === 'number' &&
-      Number.isInteger(input.expectedRepositoryCount) &&
-      input.expectedRepositoryCount >= 0 &&
-      input.expectedRepositoryCount !== observedRepositoryCount
-    ) {
-      signals.push({
-        code: 'repository_count_mismatch',
-        message: `Expected ${input.expectedRepositoryCount} repos but found ${observedRepositoryCount}.`,
-      });
-    }
-
-    if (
-      typeof input.expectedMemberCount === 'number' &&
-      Number.isInteger(input.expectedMemberCount) &&
-      input.expectedMemberCount >= 0 &&
-      input.expectedMemberCount !== observedMemberCount
-    ) {
-      signals.push({
-        code: 'member_count_mismatch',
-        message: `Expected ${input.expectedMemberCount} members but found ${observedMemberCount}.`,
-      });
-    }
-
-    if (
-      input.expectedInstallationId &&
-      !observedInstallationIds.includes(input.expectedInstallationId.trim())
-    ) {
-      signals.push({
-        code: 'installation_mismatch',
-        message: `Expected installation ${input.expectedInstallationId} was not found.`,
-      });
-    }
-
-    const lastWebhookEvent =
-      this.webhookEvents.length > 0
-        ? this.webhookEvents[this.webhookEvents.length - 1]
-        : undefined;
-    const staleAfterMs = 24 * 60 * 60 * 1000;
-    if (observedRepositoryCount > 0 && (!lastWebhookEvent || Date.now() - Date.parse(lastWebhookEvent.receivedAt) > staleAfterMs)) {
-      signals.push({
-        code: 'webhook_stale',
-        message: 'No recent webhook activity detected in the last 24 hours.',
-      });
-    }
-
+  saveDriftCheck(record: Omit<DriftCheckRecord, 'id' | 'checkedAt'>): DriftCheckRecord {
     const driftCheck: DriftCheckRecord = {
       id: `drift_${Date.now()}_${this.driftChecks.size + 1}`,
-      organizationId,
+      organizationId: record.organizationId,
       checkedAt: nowIso(),
-      expectedRepositoryCount: input.expectedRepositoryCount,
-      expectedMemberCount: input.expectedMemberCount,
-      expectedInstallationId: input.expectedInstallationId,
-      observedRepositoryCount,
-      observedMemberCount,
-      observedInstallationIds,
-      driftDetected: signals.length > 0,
-      signals,
+      expectedRepositoryCount: record.expectedRepositoryCount,
+      expectedMemberCount: record.expectedMemberCount,
+      expectedInstallationId: record.expectedInstallationId,
+      observedRepositoryCount: record.observedRepositoryCount,
+      observedMemberCount: record.observedMemberCount,
+      observedInstallationIds: record.observedInstallationIds,
+      driftDetected: record.driftDetected,
+      signals: record.signals,
     };
 
     this.driftChecks.set(driftCheck.id, driftCheck);
