@@ -8,7 +8,8 @@ Use this file as the decision log for v1 implementation.
 - Options:
   - Postgres (recommended baseline)
   - DynamoDB / document store
-- Current status: open
+- Current status: decided
+- Decision: Postgres-compatible CockroachDB.
 
 ## Q2. Queue and background execution model
 
@@ -25,7 +26,8 @@ Use this file as the decision log for v1 implementation.
 - Options:
   - GitHub App (recommended)
   - PAT-based integration (not recommended for scale)
-- Current status: open
+- Current status: decided
+- Decision: GitHub App only for v1.
 
 ## Q4. Multi-tenant isolation boundaries
 
@@ -33,7 +35,9 @@ Use this file as the decision log for v1 implementation.
 - Options:
   - row-level tenancy (workspace_id column)
   - per-tenant schema/database
-- Current status: open
+- Current status: in progress
+- Working model: org -> repo and org -> member hierarchy.
+- Remaining choice: row-level tenancy vs per-tenant schema/database.
 
 ## Q5. Rule schema and policy DSL scope
 
@@ -41,7 +45,8 @@ Use this file as the decision log for v1 implementation.
 - Options:
   - typed JSON config with versioned schema (recommended)
   - custom DSL interpreted by policy engine
-- Current status: open
+- Current status: decided
+- Decision: typed JSON config with schema versioning.
 
 ## Q6. Indexing depth in v1
 
