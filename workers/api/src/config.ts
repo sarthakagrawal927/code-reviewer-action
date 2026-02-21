@@ -2,6 +2,7 @@ export type ApiWorkerConfig = {
   host: string;
   port: number;
   authToken?: string;
+  corsOrigin: string;
   githubApiBaseUrl: string;
   githubDriftCheckToken?: string;
 };
@@ -16,6 +17,7 @@ export function loadApiWorkerConfig(): ApiWorkerConfig {
   }
 
   const authToken = process.env.API_WORKER_AUTH_TOKEN?.trim() || undefined;
+  const corsOrigin = process.env.API_WORKER_CORS_ORIGIN?.trim() || '*';
   const githubApiBaseUrl = process.env.GITHUB_API_BASE_URL?.trim() || 'https://api.github.com';
   const githubDriftCheckToken =
     process.env.GITHUB_DRIFT_CHECK_TOKEN?.trim() ||
@@ -27,6 +29,7 @@ export function loadApiWorkerConfig(): ApiWorkerConfig {
     host,
     port: parsedPort,
     authToken,
+    corsOrigin,
     githubApiBaseUrl,
     githubDriftCheckToken,
   };

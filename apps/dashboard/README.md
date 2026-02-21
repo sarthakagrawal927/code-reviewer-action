@@ -1,12 +1,23 @@
-# Dashboard App (Planned)
+# Dashboard App (Local Control Plane)
 
-This app is reserved for the upcoming dashboard experience.
+This dashboard is now a working local frontend for the v1 skeleton backend.
 
-Planned scope:
+Current capabilities:
 
-- Configure repository and organization review rules.
-- Manage severity thresholds and failure policy defaults.
-- Visualize findings, trends, and review coverage.
-- Surface code indexing status and rule-pack health.
+- Configure API base URL and optional auth token.
+- Create/list organizations.
+- Create/list org members.
+- Create/list repositories.
+- Load/update repository rules.
+- Trigger/list review runs.
+- Run drift checks and queue reconcile runs.
+- Simulate GitHub webhook events and inspect recorded events.
 
-Initial status: scaffold only.
+Run locally:
+
+```bash
+cd /Users/sarthakagrawal/Desktop/code-reviewer/apps/dashboard
+python3 -m http.server 4174
+```
+
+Then open: `http://localhost:4174`

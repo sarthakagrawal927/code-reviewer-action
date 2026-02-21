@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "echo \"Dashboard build placeholder\""
+    "build": "echo \"Dashboard static build (no-op)\"",
+    "start": "python3 -m http.server 4174"
   }
 }

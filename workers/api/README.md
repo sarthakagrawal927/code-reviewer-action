@@ -36,6 +36,7 @@ Optional env vars:
 - `API_WORKER_HOST` (default `127.0.0.1`)
 - `API_WORKER_PORT` (default `8080`)
 - `API_WORKER_AUTH_TOKEN` (if set, requires `Authorization: Bearer <token>`)
+- `API_WORKER_CORS_ORIGIN` (default `*`, set your dashboard origin in production)
 - `GITHUB_API_BASE_URL` (default `https://api.github.com`)
 - `GITHUB_DRIFT_CHECK_TOKEN` (required for live GitHub drift check endpoint)
 
