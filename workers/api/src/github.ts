@@ -31,6 +31,27 @@ export type GitHubRepository = {
   isPrivate: boolean;
 };
 
+export type GitHubRepositoryTreeEntry = {
+  path: string;
+  type: 'blob' | 'tree' | 'commit';
+  sha: string;
+  size?: number;
+  mode?: string;
+};
+
+export type GitHubRepositoryTree = {
+  entries: GitHubRepositoryTreeEntry[];
+  truncated: boolean;
+};
+
+export type GitHubBlob = {
+  sha: string;
+  size: number;
+  encoding: string;
+  content: string;
+  truncated: boolean;
+};
+
 type GitHubRequestResult<T> = {
   statusCode: number;
   body: T;
@@ -42,6 +63,33 @@ function normalizeBaseUrl(value: string): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toGitHubRepository(
+  value: unknown,
+  fallback: { owner: string; name: string }
+): GitHubRepository {
+  if (!isObject(value)) {
+    throw new GitHubApiError('Unexpected repository payload from GitHub.');
+  }
+
+  const repoOwner = isObject(value.owner) && typeof value.owner.login === 'string'
+    ? value.owner.login
+    : fallback.owner;
+  const repoName = typeof value.name === 'string' ? value.name : fallback.name;
+  const fullName = typeof value.full_name === 'string' ? value.full_name : `${repoOwner}/${repoName}`;
+  const defaultBranch = typeof value.default_branch === 'string' ? value.default_branch : 'main';
+  const id = typeof value.id === 'number' ? String(value.id) : `${repoOwner}/${repoName}`;
+  const isPrivate = typeof value.private === 'boolean' ? value.private : false;
+
+  return {
+    id,
+    owner: repoOwner,
+    name: repoName,
+    fullName,
+    defaultBranch,
+    isPrivate,
+  };
 }
 
 export class GitHubClient {
@@ -83,26 +131,91 @@ export class GitHubClient {
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`
     );
 
-    if (!isObject(result.body)) {
-      throw new GitHubApiError('Unexpected repository payload from GitHub.');
+    return toGitHubRepository(result.body, { owner, name });
+  }
+
+  async listCurrentInstallationRepositories(): Promise<GitHubRepository[]> {
+    const repositories: GitHubRepository[] = [];
+    const perPage = 100;
+
+    for (let page = 1; page <= 1000; page += 1) {
+      const result = await this.requestJson<unknown>(
+        `/installation/repositories?per_page=${perPage}&page=${page}`
+      );
+      if (!isObject(result.body) || !Array.isArray(result.body.repositories)) {
+        throw new GitHubApiError('Unexpected installation repositories payload from GitHub.');
+      }
+
+      const pageRepositories = result.body.repositories.map(repository =>
+        toGitHubRepository(repository, { owner: 'unknown', name: 'unknown' })
+      );
+      repositories.push(...pageRepositories);
+
+      if (pageRepositories.length < perPage) {
+        break;
+      }
     }
 
-    const repoOwner = isObject(result.body.owner) && typeof result.body.owner.login === 'string'
-      ? result.body.owner.login
-      : owner;
-    const repoName = typeof result.body.name === 'string' ? result.body.name : name;
-    const fullName = typeof result.body.full_name === 'string' ? result.body.full_name : `${repoOwner}/${repoName}`;
-    const defaultBranch = typeof result.body.default_branch === 'string' ? result.body.default_branch : 'main';
-    const id = typeof result.body.id === 'number' ? String(result.body.id) : `${repoOwner}/${repoName}`;
-    const isPrivate = typeof result.body.private === 'boolean' ? result.body.private : false;
+    return repositories;
+  }
+
+  async getRepositoryTree(owner: string, name: string, ref: string): Promise<GitHubRepositoryTree> {
+    const result = await this.requestJson<unknown>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/git/trees/${encodeURIComponent(
+        ref
+      )}?recursive=1`
+    );
+
+    if (!isObject(result.body) || !Array.isArray(result.body.tree)) {
+      throw new GitHubApiError('Unexpected repository tree payload from GitHub.');
+    }
+
+    const entries: GitHubRepositoryTreeEntry[] = result.body.tree
+      .filter(item => isObject(item))
+      .map(item => {
+        const path = typeof item.path === 'string' ? item.path : '';
+        const type: GitHubRepositoryTreeEntry['type'] =
+          item.type === 'blob' || item.type === 'tree' || item.type === 'commit' ? item.type : 'blob';
+        const sha = typeof item.sha === 'string' ? item.sha : '';
+        const size = typeof item.size === 'number' ? item.size : undefined;
+        const mode = typeof item.mode === 'string' ? item.mode : undefined;
+        return {
+          path,
+          type,
+          sha,
+          size,
+          mode,
+        };
+      })
+      .filter(entry => Boolean(entry.path) && Boolean(entry.sha));
 
     return {
-      id,
-      owner: repoOwner,
-      name: repoName,
-      fullName,
-      defaultBranch,
-      isPrivate,
+      entries,
+      truncated: Boolean(result.body.truncated),
+    };
+  }
+
+  async getRepositoryBlob(owner: string, name: string, blobSha: string): Promise<GitHubBlob> {
+    const result = await this.requestJson<unknown>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/git/blobs/${encodeURIComponent(blobSha)}`
+    );
+
+    if (!isObject(result.body)) {
+      throw new GitHubApiError('Unexpected repository blob payload from GitHub.');
+    }
+
+    const sha = typeof result.body.sha === 'string' ? result.body.sha : blobSha;
+    const size = typeof result.body.size === 'number' ? result.body.size : 0;
+    const encoding = typeof result.body.encoding === 'string' ? result.body.encoding : '';
+    const content = typeof result.body.content === 'string' ? result.body.content : '';
+    const truncated = Boolean(result.body.truncated);
+
+    return {
+      sha,
+      size,
+      encoding,
+      content,
+      truncated,
     };
   }
 

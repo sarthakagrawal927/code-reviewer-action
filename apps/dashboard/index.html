@@ -330,6 +330,12 @@
         font-size: 0.76rem;
         font-family: 'IBM Plex Mono', monospace;
       }
+
+      /* Hide lower-priority setup panels to reduce clutter in v0/v1 local UX. */
+      #orgs-card,
+      #members-card {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -484,7 +490,7 @@
         <section class="card wide" id="repos-card">
           <h2>Repositories</h2>
           <p class="section-note">
-            Quick connect creates a local repo record in this backend skeleton. Live GitHub sync requires GitHub App installation.
+            Connect one repo or sync all repositories from the installed GitHub App installation into this workspace.
           </p>
           <div class="field-grid cols-3">
             <div>
@@ -510,6 +516,7 @@
           </div>
           <div class="btn-row">
             <button class="success" id="quick-connect-repo-btn">Connect GitHub Repo</button>
+            <button class="primary" id="sync-installation-repos-btn">Sync Installation Repos</button>
           </div>
           <div id="repo-status" class="status warn">Repository connector idle.</div>
           <div class="field-grid cols-3">
@@ -550,6 +557,40 @@
               </thead>
               <tbody id="repos-table-body"></tbody>
             </table>
+          </div>
+        </section>
+
+        <section class="card half" id="indexing-card">
+          <h2>Indexing</h2>
+          <p class="section-note">Select a connected repo and run tree-sitter indexing against a branch/ref.</p>
+          <div class="field-grid cols-2">
+            <div>
+              <label for="indexing-repo-id">Repository</label>
+              <select id="indexing-repo-id"></select>
+            </div>
+            <div>
+              <label for="indexing-source-ref">Source Ref (optional)</label>
+              <input id="indexing-source-ref" type="text" placeholder="main" />
+            </div>
+            <div>
+              <label for="indexing-max-files">Max Files</label>
+              <input id="indexing-max-files" type="number" min="1" max="500" value="120" />
+            </div>
+            <div>
+              <label for="indexing-max-file-bytes">Max File Bytes</label>
+              <input id="indexing-max-file-bytes" type="number" min="1024" value="1048576" />
+            </div>
+            <div>
+              <label for="indexing-max-chunk-lines">Max Chunk Lines</label>
+              <input id="indexing-max-chunk-lines" type="number" min="20" max="1000" value="220" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="primary" id="run-indexing">Run Indexing</button>
+            <button class="secondary" id="load-indexing-runs">Load Indexing Runs</button>
+          </div>
+          <div class="data-box">
+            <pre class="json" id="indexing-result">No indexing runs yet.</pre>
           </div>
         </section>
 
@@ -742,6 +783,7 @@
         apiToken: 'cr_dashboard_api_token',
         githubAppInstallUrl: 'cr_dashboard_github_app_install_url'
       };
+      const DEFAULT_GITHUB_APP_INSTALL_URL = 'https://github.com/apps/core-reviewer/installations/new';
 
       const state = {
         orgs: [],
@@ -780,6 +822,13 @@
         quickConnectBranch: document.getElementById('quick-connect-branch'),
         repoStatus: document.getElementById('repo-status'),
         reposTableBody: document.getElementById('repos-table-body'),
+
+        indexingRepoId: document.getElementById('indexing-repo-id'),
+        indexingSourceRef: document.getElementById('indexing-source-ref'),
+        indexingMaxFiles: document.getElementById('indexing-max-files'),
+        indexingMaxFileBytes: document.getElementById('indexing-max-file-bytes'),
+        indexingMaxChunkLines: document.getElementById('indexing-max-chunk-lines'),
+        indexingResult: document.getElementById('indexing-result'),
 
         rulesRepoId: document.getElementById('rules-repo-id'),
         ruleFailOnFindings: document.getElementById('rule-fail-on-findings'),
@@ -957,7 +1006,7 @@
       }
 
       function fillRepoSelects() {
-        const selects = [refs.rulesRepoId, refs.reviewsRepoId];
+        const selects = [refs.indexingRepoId, refs.rulesRepoId, refs.reviewsRepoId];
         for (const select of selects) {
           const previous = select.value;
           const options = ['<option value="">Select repository</option>']
@@ -967,6 +1016,17 @@
             .join('');
           select.innerHTML = options;
           select.value = previous || '';
+        }
+
+        if (!refs.indexingRepoId.value && state.repos.length > 0) {
+          refs.indexingRepoId.value = state.repos[0].id;
+        }
+
+        if (refs.indexingRepoId.value && !refs.indexingSourceRef.value.trim()) {
+          const repository = state.repos.find(item => item.id === refs.indexingRepoId.value);
+          if (repository && repository.defaultBranch) {
+            refs.indexingSourceRef.value = repository.defaultBranch;
+          }
         }
       }
 
@@ -1119,6 +1179,81 @@
 
         await loadRepos();
         await loadOrgs();
+      }
+
+      async function syncInstallationRepos() {
+        const organizationId = refs.quickConnectOrgId.value || refs.selectedOrgGlobal.value;
+        if (!organizationId) {
+          throw new Error('Select an org before syncing installation repositories.');
+        }
+
+        const installationId = refs.quickConnectInstallationId.value.trim();
+        if (!installationId) {
+          throw new Error('Installation ID is required to sync repositories.');
+        }
+
+        const payload = {
+          organizationId,
+          installationId
+        };
+        const data = await apiRequest('/v1/github/sync-installation-repositories', {
+          method: 'POST',
+          body: payload
+        });
+
+        refs.repoWorkspaceId.value = organizationId;
+        refs.repoInstallationId.value = installationId;
+        const syncedCount = Number(data.syncedCount || 0);
+        if (syncedCount === 0) {
+          setRepoStatus(
+            `Synced 0 repositories. Ensure the GitHub App has repository access and Metadata read permission.`,
+            'warn'
+          );
+        } else {
+          setRepoStatus(`Synced ${syncedCount} repositories from installation ${installationId}.`, 'ok');
+        }
+        log('Synced installation repositories.', {
+          organizationId,
+          installationId,
+          syncedCount
+        });
+
+        await loadRepos();
+        await loadOrgs();
+      }
+
+      async function runIndexing() {
+        const repositoryId = refs.indexingRepoId.value;
+        if (!repositoryId) {
+          throw new Error('Select a repository before indexing.');
+        }
+
+        const payload = {
+          repositoryId,
+          sourceRef: refs.indexingSourceRef.value.trim() || undefined,
+          maxFiles: safeNumber(refs.indexingMaxFiles.value),
+          maxFileBytes: safeNumber(refs.indexingMaxFileBytes.value),
+          maxChunkLines: safeNumber(refs.indexingMaxChunkLines.value)
+        };
+
+        const data = await apiRequest('/v1/indexing/trigger', {
+          method: 'POST',
+          body: payload
+        });
+        refs.indexingResult.textContent = JSON.stringify(data, null, 2);
+        setRepoStatus(
+          `Indexing completed: files=${data.summary?.indexedFileCount || 0}, chunks=${data.summary?.chunkCount || 0}.`,
+          'ok'
+        );
+        log('Completed indexing run.', data);
+      }
+
+      async function loadIndexingRuns() {
+        const repositoryId = refs.indexingRepoId.value;
+        const suffix = repositoryId ? `?repositoryId=${encodeURIComponent(repositoryId)}` : '';
+        const data = await apiRequest(`/v1/indexing/runs${suffix}`);
+        refs.indexingResult.textContent = JSON.stringify(data, null, 2);
+        log('Loaded indexing runs.', { count: (data.runs || []).length, repositoryId: repositoryId || null });
       }
 
       function rulesPayload() {
@@ -1314,11 +1449,43 @@
         await Promise.all([loadOrgs(), loadRepos()]);
       }
 
+      async function ensureDefaultOrganization() {
+        if (state.orgs.length === 0) {
+          const data = await apiRequest('/v1/orgs', {
+            method: 'POST',
+            body: {
+              slug: 'local-workspace',
+              displayName: 'Local Workspace'
+            }
+          });
+          log('Created default workspace organization.', data);
+          await loadOrgs();
+        }
+
+        if (state.orgs.length === 0) {
+          throw new Error('Unable to initialize a default organization.');
+        }
+
+        const orgId = refs.selectedOrgGlobal.value || state.orgs[0].id;
+        refs.selectedOrgGlobal.value = orgId;
+        refs.quickConnectOrgId.value = orgId;
+        refs.membersOrgId.value = orgId;
+        refs.driftOrgId.value = orgId;
+        refs.repoWorkspaceId.value = orgId;
+
+        const org = state.orgs.find(item => item.id === orgId);
+        if (org?.githubInstallationId && !refs.quickConnectInstallationId.value.trim()) {
+          refs.quickConnectInstallationId.value = org.githubInstallationId;
+        }
+      }
+
       function saveConnection() {
         const { baseUrl, token } = readConnection();
+        const githubAppInstallUrl = refs.githubAppInstallUrl.value.trim() || DEFAULT_GITHUB_APP_INSTALL_URL;
+        refs.githubAppInstallUrl.value = githubAppInstallUrl;
         localStorage.setItem(STORE_KEYS.apiBaseUrl, baseUrl);
         localStorage.setItem(STORE_KEYS.apiToken, token);
-        localStorage.setItem(STORE_KEYS.githubAppInstallUrl, refs.githubAppInstallUrl.value.trim());
+        localStorage.setItem(STORE_KEYS.githubAppInstallUrl, githubAppInstallUrl);
         setConnectionStatus(`Saved connection for ${baseUrl}`, 'ok');
         log('Saved connection settings.');
       }
@@ -1333,16 +1500,15 @@
         if (token) {
           refs.apiToken.value = token;
         }
-        if (githubAppInstallUrl) {
-          refs.githubAppInstallUrl.value = githubAppInstallUrl;
-        }
+        refs.githubAppInstallUrl.value = githubAppInstallUrl || DEFAULT_GITHUB_APP_INSTALL_URL;
       }
 
       function openGitHubAppInstall() {
-        const url = refs.githubAppInstallUrl.value.trim();
+        const url = refs.githubAppInstallUrl.value.trim() || DEFAULT_GITHUB_APP_INSTALL_URL;
         if (!url) {
           throw new Error('Set GitHub App Install URL first.');
         }
+        refs.githubAppInstallUrl.value = url;
         const parsed = new URL(url);
         const orgId = refs.quickConnectOrgId.value || refs.selectedOrgGlobal.value;
         if (orgId) {
@@ -1383,7 +1549,10 @@
 
         bindAction('create-repo', createRepo, 'Create repo');
         bindAction('quick-connect-repo-btn', quickConnectRepo, 'Quick connect repo');
+        bindAction('sync-installation-repos-btn', syncInstallationRepos, 'Sync installation repos');
         bindAction('load-repos', loadRepos, 'Load repos');
+        bindAction('run-indexing', runIndexing, 'Run indexing');
+        bindAction('load-indexing-runs', loadIndexingRuns, 'Load indexing runs');
 
         bindAction('load-rules', loadRules, 'Load rules');
         bindAction('save-rules', saveRules, 'Save rules');
@@ -1425,6 +1594,18 @@
           refs.repoWorkspaceId.value = orgId;
           const org = state.orgs.find(item => item.id === orgId);
           refs.quickConnectInstallationId.value = org?.githubInstallationId || '';
+        });
+
+        refs.indexingRepoId.addEventListener('change', () => {
+          const repositoryId = refs.indexingRepoId.value;
+          if (!repositoryId || refs.indexingSourceRef.value.trim()) {
+            return;
+          }
+
+          const repository = state.repos.find(item => item.id === repositoryId);
+          if (repository && repository.defaultBranch) {
+            refs.indexingSourceRef.value = repository.defaultBranch;
+          }
         });
 
         refs.orgsTableBody.addEventListener('click', event => {
@@ -1469,9 +1650,20 @@
         try {
           await loadHealth();
           await refreshAll();
+          await ensureDefaultOrganization();
           if (stateFromCallback) {
             refs.selectedOrgGlobal.value = stateFromCallback;
             refs.quickConnectOrgId.value = stateFromCallback;
+            refs.membersOrgId.value = stateFromCallback;
+            refs.driftOrgId.value = stateFromCallback;
+            refs.repoWorkspaceId.value = stateFromCallback;
+          }
+          if (installationIdFromCallback) {
+            setRepoStatus(
+              `Detected installation callback installation_id=${installationIdFromCallback}. Syncing repositories...`,
+              'ok'
+            );
+            await syncInstallationRepos();
           }
         } catch (error) {
           handleError('Boot', error);

@@ -2,9 +2,12 @@ import {
   DriftCheckInput,
   DriftSignal,
   GitHubWebhookEnvelope,
+  IndexedFileRecord,
+  IndexingJobRecord,
   OrganizationMemberRecord,
   RepositoryRuleConfig,
   ReviewRunRecord,
+  SemanticChunkRecord,
 } from '@code-reviewer/shared-types';
 import { GitHubApiError, GitHubClient } from './github';
 import { HttpContext, HttpResponse } from './http';
@@ -39,6 +42,77 @@ function requireAuth(context: HttpContext, authToken?: string): HttpResponse | n
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+type TreeSitterIndexer = {
+  buildTreeSitterIndexForFile: (
+    file: {
+      repositoryId: string;
+      sourceRef: string;
+      path: string;
+      blobSha: string;
+      content: string;
+    },
+    config: {
+      maxFileBytes: number;
+      maxChunkLines: number;
+    }
+  ) => {
+    fileRecord: IndexedFileRecord;
+    chunks: SemanticChunkRecord[];
+  };
+};
+
+let cachedTreeSitterIndexer: TreeSitterIndexer | null = null;
+
+function getTreeSitterIndexer(): TreeSitterIndexer {
+  if (cachedTreeSitterIndexer) {
+    return cachedTreeSitterIndexer;
+  }
+
+  try {
+    // Runtime dependency on workers/review build output to avoid duplicating chunking logic.
+    const loaded = require('../../review/dist/indexing') as Partial<TreeSitterIndexer>;
+    if (!loaded || typeof loaded.buildTreeSitterIndexForFile !== 'function') {
+      throw new Error('Tree-sitter indexer export not found.');
+    }
+
+    cachedTreeSitterIndexer = loaded as TreeSitterIndexer;
+    return cachedTreeSitterIndexer;
+  } catch (error) {
+    throw new Error(
+      `Tree-sitter indexer is unavailable. Build it first with: npm run -w workers/review build. ` +
+        `(${error instanceof Error ? error.message : 'unknown error'})`
+    );
+  }
+}
+
+function decodeBase64BlobContent(content: string): string {
+  return Buffer.from(content.replace(/\n/g, ''), 'base64').toString('utf8');
+}
+
+function isLikelyBinaryContent(content: string): boolean {
+  return content.includes('\u0000');
+}
+
+async function resolveTokenInstallationId(
+  githubClient: GitHubClient
+): Promise<{ installationId: string | null; skipped: boolean }> {
+  try {
+    return {
+      installationId: await githubClient.getCurrentInstallationId(),
+      skipped: false,
+    };
+  } catch (error) {
+    if (error instanceof GitHubApiError && (error.statusCode === 403 || error.statusCode === 404)) {
+      return {
+        installationId: null,
+        skipped: true,
+      };
+    }
+
+    throw error;
+  }
 }
 
 function parseRuleConfigInput(repositoryId: string, body: unknown): Omit<RepositoryRuleConfig, 'updatedAt'> {
@@ -379,9 +453,12 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
       };
     }
 
-    let tokenInstallationId: string;
+    let tokenInstallationId: string | null = null;
+    let installationValidationSkipped = false;
     try {
-      tokenInstallationId = await deps.githubClient.getCurrentInstallationId();
+      const resolved = await resolveTokenInstallationId(deps.githubClient);
+      tokenInstallationId = resolved.installationId;
+      installationValidationSkipped = resolved.skipped;
     } catch (error) {
       const statusCode = error instanceof GitHubApiError && error.statusCode ? error.statusCode : 502;
       return {
@@ -393,7 +470,7 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
       };
     }
 
-    if (tokenInstallationId !== installationId) {
+    if (tokenInstallationId && tokenInstallationId !== installationId) {
       return {
         status: 409,
         body: {
@@ -444,6 +521,133 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
         organization: updatedOrganization,
         repository,
         source: 'github_app_installation',
+        installationValidation: installationValidationSkipped ? 'skipped' : 'validated',
+      },
+    };
+  }
+
+  if (context.method === 'POST' && context.pathname === '/v1/github/sync-installation-repositories') {
+    if (!deps.githubClient) {
+      return {
+        status: 503,
+        body: {
+          error: 'github_not_configured',
+          message:
+            'GitHub token is not configured. Set GITHUB_DRIFT_CHECK_TOKEN or GITHUB_APP_INSTALLATION_TOKEN.',
+        },
+      };
+    }
+
+    if (!isObject(context.body)) {
+      return {
+        status: 400,
+        body: {
+          error: 'invalid_request',
+          message: 'Body must be a JSON object.',
+        },
+      };
+    }
+
+    const organizationId =
+      typeof context.body.organizationId === 'string' ? context.body.organizationId.trim() : '';
+    const installationId =
+      typeof context.body.installationId === 'string' ? context.body.installationId.trim() : '';
+    if (!organizationId || !installationId) {
+      return {
+        status: 400,
+        body: {
+          error: 'invalid_sync_payload',
+          message: 'organizationId and installationId are required.',
+        },
+      };
+    }
+
+    const organization = deps.store.getOrganization(organizationId);
+    if (!organization) {
+      return {
+        status: 404,
+        body: {
+          error: 'organization_not_found',
+          message: `Unknown organization: ${organizationId}`,
+        },
+      };
+    }
+
+    let tokenInstallationId: string | null = null;
+    let installationValidationSkipped = false;
+    try {
+      const resolved = await resolveTokenInstallationId(deps.githubClient);
+      tokenInstallationId = resolved.installationId;
+      installationValidationSkipped = resolved.skipped;
+    } catch (error) {
+      const statusCode = error instanceof GitHubApiError && error.statusCode ? error.statusCode : 502;
+      return {
+        status: statusCode,
+        body: {
+          error: 'github_installation_lookup_failed',
+          message: error instanceof Error ? error.message : 'Unable to validate installation token.',
+        },
+      };
+    }
+
+    if (tokenInstallationId && tokenInstallationId !== installationId) {
+      return {
+        status: 409,
+        body: {
+          error: 'installation_mismatch',
+          message:
+            `Provided installationId=${installationId} does not match token installationId=${tokenInstallationId}. ` +
+            'Use token minted for the same installation.',
+        },
+      };
+    }
+
+    let remoteRepositories: Awaited<ReturnType<GitHubClient['listCurrentInstallationRepositories']>>;
+    try {
+      remoteRepositories = await deps.githubClient.listCurrentInstallationRepositories();
+    } catch (error) {
+      const statusCode = error instanceof GitHubApiError && error.statusCode ? error.statusCode : 502;
+      return {
+        status: statusCode,
+        body: {
+          error: 'github_installation_repositories_failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to load installation repositories from GitHub.',
+        },
+      };
+    }
+
+    const repositories = remoteRepositories.map(remoteRepository =>
+      deps.store.upsertRepository({
+        workspaceId: organizationId,
+        provider: 'github',
+        owner: remoteRepository.owner,
+        name: remoteRepository.name,
+        fullName: remoteRepository.fullName,
+        installationId,
+        defaultBranch: remoteRepository.defaultBranch,
+        isActive: true,
+      })
+    );
+
+    const updatedOrganization = deps.store.upsertOrganization({
+      id: organization.id,
+      slug: organization.slug,
+      displayName: organization.displayName,
+      githubOrgId: organization.githubOrgId,
+      githubInstallationId: installationId,
+    });
+
+    return {
+      status: 200,
+      body: {
+        organization: updatedOrganization,
+        repositories,
+        syncedCount: repositories.length,
+        source: 'github_app_installation',
+        installationValidation: installationValidationSkipped ? 'skipped' : 'validated',
       },
     };
   }
@@ -665,6 +869,226 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
       status: 201,
       body: { repository },
     };
+  }
+
+  if (context.method === 'GET' && context.pathname === '/v1/indexing/runs') {
+    const repositoryId = context.query.get('repositoryId') || undefined;
+    return {
+      status: 200,
+      body: {
+        runs: deps.store.listIndexingRuns(repositoryId),
+      },
+    };
+  }
+
+  const latestIndexingMatch = /^\/v1\/indexing\/latest\/([^/]+)$/.exec(context.pathname);
+  if (latestIndexingMatch && context.method === 'GET') {
+    const repositoryId = latestIndexingMatch[1];
+    const batch = deps.store.getLatestSemanticIndexBatch(repositoryId);
+    if (!batch) {
+      return {
+        status: 404,
+        body: {
+          error: 'index_not_found',
+          message: `No index found for repositoryId=${repositoryId}.`,
+        },
+      };
+    }
+
+    return {
+      status: 200,
+      body: {
+        repositoryId: batch.repositoryId,
+        sourceRef: batch.sourceRef,
+        strategy: batch.strategy,
+        fileCount: batch.files.length,
+        chunkCount: batch.chunks.length,
+        files: batch.files.slice(0, 50),
+        chunks: batch.chunks.slice(0, 50),
+      },
+    };
+  }
+
+  if (context.method === 'POST' && context.pathname === '/v1/indexing/trigger') {
+    if (!deps.githubClient) {
+      return {
+        status: 503,
+        body: {
+          error: 'github_not_configured',
+          message:
+            'GitHub token is not configured. Set GITHUB_DRIFT_CHECK_TOKEN or GITHUB_APP_INSTALLATION_TOKEN.',
+        },
+      };
+    }
+
+    if (!isObject(context.body)) {
+      return {
+        status: 400,
+        body: {
+          error: 'invalid_request',
+          message: 'Body must be a JSON object.',
+        },
+      };
+    }
+
+    const repositoryId =
+      typeof context.body.repositoryId === 'string' ? context.body.repositoryId.trim() : '';
+    if (!repositoryId) {
+      return {
+        status: 400,
+        body: {
+          error: 'invalid_indexing_payload',
+          message: 'repositoryId is required.',
+        },
+      };
+    }
+
+    const repository = deps.store.getRepository(repositoryId);
+    if (!repository) {
+      return {
+        status: 404,
+        body: {
+          error: 'repository_not_found',
+          message: `Unknown repository: ${repositoryId}`,
+        },
+      };
+    }
+
+    const sourceRefInput =
+      typeof context.body.sourceRef === 'string' && context.body.sourceRef.trim()
+        ? context.body.sourceRef.trim()
+        : undefined;
+    const sourceRef = sourceRefInput || repository.defaultBranch || 'main';
+    const maxFilesInput =
+      typeof context.body.maxFiles === 'number' && Number.isInteger(context.body.maxFiles)
+        ? context.body.maxFiles
+        : 120;
+    const maxFileBytesInput =
+      typeof context.body.maxFileBytes === 'number' && Number.isInteger(context.body.maxFileBytes)
+        ? context.body.maxFileBytes
+        : 10 * 1024 * 1024;
+    const maxChunkLinesInput =
+      typeof context.body.maxChunkLines === 'number' && Number.isInteger(context.body.maxChunkLines)
+        ? context.body.maxChunkLines
+        : 220;
+
+    const maxFiles = Math.max(1, Math.min(500, maxFilesInput));
+    const maxFileBytes = Math.max(1024, Math.min(10 * 1024 * 1024, maxFileBytesInput));
+    const maxChunkLines = Math.max(20, Math.min(1000, maxChunkLinesInput));
+
+    const run: IndexingJobRecord = {
+      id: `idx_${Date.now()}`,
+      repositoryId,
+      status: 'running',
+      sourceRef,
+      startedAt: new Date().toISOString(),
+    };
+    deps.store.addIndexingRun(run);
+
+    try {
+      const tree = await deps.githubClient.getRepositoryTree(repository.owner, repository.name, sourceRef);
+      const indexer = getTreeSitterIndexer();
+      const blobEntries = tree.entries
+        .filter(entry => entry.type === 'blob')
+        .filter(entry => Boolean(entry.path) && Boolean(entry.sha))
+        .slice(0, maxFiles);
+
+      const files: IndexedFileRecord[] = [];
+      const chunks: SemanticChunkRecord[] = [];
+      let skippedBinary = 0;
+      let skippedOversized = 0;
+      let skippedErrors = 0;
+
+      for (const entry of blobEntries) {
+        if (typeof entry.size === 'number' && entry.size > maxFileBytes) {
+          skippedOversized += 1;
+          continue;
+        }
+
+        try {
+          const blob = await deps.githubClient.getRepositoryBlob(
+            repository.owner,
+            repository.name,
+            entry.sha
+          );
+          if (blob.encoding !== 'base64' || !blob.content) {
+            skippedErrors += 1;
+            continue;
+          }
+
+          const content = decodeBase64BlobContent(blob.content);
+          if (isLikelyBinaryContent(content)) {
+            skippedBinary += 1;
+            continue;
+          }
+
+          const indexed = indexer.buildTreeSitterIndexForFile(
+            {
+              repositoryId: repository.id,
+              sourceRef,
+              path: entry.path,
+              blobSha: blob.sha,
+              content,
+            },
+            {
+              maxFileBytes,
+              maxChunkLines,
+            }
+          );
+          files.push(indexed.fileRecord);
+          chunks.push(...indexed.chunks);
+        } catch {
+          skippedErrors += 1;
+        }
+      }
+
+      deps.store.saveSemanticIndexBatch({
+        repositoryId: repository.id,
+        sourceRef,
+        strategy: 'tree-sitter',
+        files,
+        chunks,
+      });
+
+      const completedRun = deps.store.updateIndexingRun(run.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+
+      return {
+        status: 200,
+        body: {
+          run: completedRun || run,
+          summary: {
+            requestedMaxFiles: maxFiles,
+            treeEntryCount: tree.entries.length,
+            scannedBlobCount: blobEntries.length,
+            indexedFileCount: files.length,
+            chunkCount: chunks.length,
+            skippedOversized,
+            skippedBinary,
+            skippedErrors,
+            treeTruncated: tree.truncated,
+          },
+        },
+      };
+    } catch (error) {
+      const failedRun = deps.store.updateIndexingRun(run.id, {
+        status: 'failed',
+        completedAt: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : 'Unknown indexing error.',
+      });
+
+      const statusCode = error instanceof GitHubApiError && error.statusCode ? error.statusCode : 500;
+      return {
+        status: statusCode,
+        body: {
+          error: 'indexing_failed',
+          run: failedRun || run,
+          message: error instanceof Error ? error.message : 'Unknown indexing error.',
+        },
+      };
+    }
   }
 
   if (context.method === 'GET' && context.pathname.startsWith('/v1/rules/')) {

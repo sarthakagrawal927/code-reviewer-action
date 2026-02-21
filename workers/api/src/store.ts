@@ -1,6 +1,8 @@
 import {
   DriftCheckRecord,
   GitHubWebhookEnvelope,
+  IndexingJobRecord,
+  SemanticIndexBatch,
   OrganizationMemberRecord,
   OrganizationRecord,
   ReconcileRunRecord,
@@ -19,6 +21,8 @@ export class InMemoryApiStore {
   private repositories = new Map<string, RepositoryConnection>();
   private rules = new Map<string, RepositoryRuleConfig>();
   private reviewRuns = new Map<string, ReviewRunRecord>();
+  private indexingRuns = new Map<string, IndexingJobRecord>();
+  private latestSemanticBatchByRepository = new Map<string, SemanticIndexBatch>();
   private driftChecks = new Map<string, DriftCheckRecord>();
   private reconcileRuns = new Map<string, ReconcileRunRecord>();
   private webhookEvents: GitHubWebhookEnvelope[] = [];
@@ -88,6 +92,10 @@ export class InMemoryApiStore {
     return this.listRepositories().filter(repository => repository.workspaceId === organizationId);
   }
 
+  getRepository(repositoryId: string): RepositoryConnection | undefined {
+    return this.repositories.get(repositoryId);
+  }
+
   getRepositoryByFullName(fullName: string): RepositoryConnection | undefined {
     return Array.from(this.repositories.values()).find(repo => repo.fullName === fullName);
   }
@@ -130,6 +138,39 @@ export class InMemoryApiStore {
   listReviewRuns(repositoryId?: string): ReviewRunRecord[] {
     const values = Array.from(this.reviewRuns.values());
     return repositoryId ? values.filter(item => item.repositoryId === repositoryId) : values;
+  }
+
+  addIndexingRun(run: IndexingJobRecord): IndexingJobRecord {
+    this.indexingRuns.set(run.id, run);
+    return run;
+  }
+
+  updateIndexingRun(runId: string, patch: Partial<IndexingJobRecord>): IndexingJobRecord | undefined {
+    const existing = this.indexingRuns.get(runId);
+    if (!existing) {
+      return undefined;
+    }
+
+    const next: IndexingJobRecord = {
+      ...existing,
+      ...patch,
+    };
+    this.indexingRuns.set(runId, next);
+    return next;
+  }
+
+  listIndexingRuns(repositoryId?: string): IndexingJobRecord[] {
+    const values = Array.from(this.indexingRuns.values());
+    const filtered = repositoryId ? values.filter(item => item.repositoryId === repositoryId) : values;
+    return filtered.sort((left, right) => (left.startedAt || '').localeCompare(right.startedAt || ''));
+  }
+
+  saveSemanticIndexBatch(batch: SemanticIndexBatch): void {
+    this.latestSemanticBatchByRepository.set(batch.repositoryId, batch);
+  }
+
+  getLatestSemanticIndexBatch(repositoryId: string): SemanticIndexBatch | undefined {
+    return this.latestSemanticBatchByRepository.get(repositoryId);
   }
 
   saveDriftCheck(record: Omit<DriftCheckRecord, 'id' | 'checkedAt'>): DriftCheckRecord {

@@ -8,6 +8,10 @@ This worker is the hosted control-plane API skeleton for v1.
 - `GET /v1/orgs`
 - `POST /v1/orgs`
 - `POST /v1/github/connect-repository` (proper GitHub App installation-token repository connect)
+- `POST /v1/github/sync-installation-repositories` (bulk import all repositories from the current installation token)
+- `POST /v1/indexing/trigger` (run tree-sitter indexing for one connected repo + ref)
+- `GET /v1/indexing/runs`
+- `GET /v1/indexing/latest/:repositoryId`
 - `GET /v1/orgs/:orgId/members`
 - `POST /v1/orgs/:orgId/members`
 - `GET /v1/orgs/:orgId/drift/check`
@@ -28,6 +32,7 @@ All data is currently in-memory only.
 ## Run
 
 ```bash
+npm run -w workers/review build   # required once for tree-sitter indexing module
 npm run -w workers/api build
 npm run -w workers/api start
 ```
