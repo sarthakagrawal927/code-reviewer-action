@@ -32,7 +32,7 @@ v1 moves from standalone action setup to a hosted product with onboarding, repos
 
 - Repo connection and install status
 - Rule management UI (severity thresholds, style/safety constraints)
-- Repository semantic indexing pipeline (vector retrieval deferred to v1.1)
+- Repository semantic indexing pipeline with syntax-aware chunking (vector retrieval deferred to v1.1)
 - PR scoring in dashboard and PR comments
 - Combined policy engine:
   - user-defined rules
@@ -60,3 +60,4 @@ v1 moves from standalone action setup to a hosted product with onboarding, repos
 ## Decision Log
 
 Track unresolved engineering choices in `/Users/sarthakagrawal/Desktop/code-reviewer/docs/v1-technical-questions.md`.
+Indexing implementation details are tracked in `/Users/sarthakagrawal/Desktop/code-reviewer/docs/v1-indexing-spec.md`.

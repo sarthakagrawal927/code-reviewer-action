@@ -6,13 +6,16 @@ function now(): string {
 
 type HandlerConfig = {
   maxIndexFileBytes: number;
+  indexChunkStrategy: 'syntax-aware';
+  indexMaxChunkLines: number;
 };
 
 async function handleIndexingJob(job: IndexingJob, config: HandlerConfig): Promise<void> {
   // Placeholder for repository ingestion + indexing pipeline.
   console.log(
     `[worker-review] [${now()}] indexing repository=${job.payload.repositoryId} ` +
-      `ref=${job.payload.sourceRef || 'default'} maxFileBytes=${config.maxIndexFileBytes}`
+      `ref=${job.payload.sourceRef || 'default'} maxFileBytes=${config.maxIndexFileBytes} ` +
+      `chunkStrategy=${config.indexChunkStrategy} maxChunkLines=${config.indexMaxChunkLines}`
   );
 }
 

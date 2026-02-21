@@ -15,6 +15,8 @@ async function processJobWithRetry(
   job: Parameters<typeof handleJob>[0],
   maxRetries: number,
   maxIndexFileBytes: number,
+  indexChunkStrategy: 'syntax-aware',
+  indexMaxChunkLines: number,
   retryBaseDelayMs: number,
   retryMaxDelayMs: number
 ): Promise<void> {
@@ -22,7 +24,7 @@ async function processJobWithRetry(
 
   while (true) {
     try {
-      await handleJob(job, { maxIndexFileBytes });
+      await handleJob(job, { maxIndexFileBytes, indexChunkStrategy, indexMaxChunkLines });
       return;
     } catch (error) {
       if (attempt >= maxRetries) {
@@ -50,7 +52,8 @@ async function run() {
       `maxIterations=${config.maxIterations} maxRetries=${config.maxRetries} ` +
       `retryBaseMs=${config.retryBaseDelayMs} retryMaxMs=${config.retryMaxDelayMs} ` +
       `reviewQueue=${config.reviewQueueName} indexingQueue=${config.indexingQueueName} ` +
-      `indexMaxFileBytes=${config.maxIndexFileBytes}`
+      `indexMaxFileBytes=${config.maxIndexFileBytes} ` +
+      `indexChunkStrategy=${config.indexChunkStrategy} indexMaxChunkLines=${config.indexMaxChunkLines}`
   );
 
   for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
@@ -74,6 +77,8 @@ async function run() {
           job,
           config.maxRetries,
           config.maxIndexFileBytes,
+          config.indexChunkStrategy,
+          config.indexMaxChunkLines,
           config.retryBaseDelayMs,
           config.retryMaxDelayMs
         );

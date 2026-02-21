@@ -74,6 +74,44 @@ export type IndexingJobRecord = {
     completedAt?: string;
     errorMessage?: string;
 };
+export type IndexingChunkStrategy = 'syntax-aware';
+export type IndexedCodeLanguage = 'typescript' | 'javascript' | 'tsx' | 'jsx' | 'python' | 'go' | 'java' | 'csharp' | 'ruby' | 'php' | 'rust' | 'kotlin' | 'swift' | 'sql' | 'yaml' | 'json' | 'markdown' | 'other';
+export type IndexedSymbolKind = 'module' | 'class' | 'interface' | 'type' | 'enum' | 'function' | 'method' | 'const' | 'block';
+export type IndexedFileRecord = {
+    id: string;
+    repositoryId: string;
+    sourceRef: string;
+    path: string;
+    blobSha: string;
+    contentSha256: string;
+    language: IndexedCodeLanguage;
+    sizeBytes: number;
+    indexedAt: string;
+    chunkStrategy: IndexingChunkStrategy;
+};
+export type SemanticChunkRecord = {
+    id: string;
+    repositoryId: string;
+    sourceRef: string;
+    filePath: string;
+    fileContentSha256: string;
+    language: IndexedCodeLanguage;
+    symbolKind: IndexedSymbolKind;
+    symbolName?: string;
+    chunkOrdinal: number;
+    startLine: number;
+    endLine: number;
+    content: string;
+    contentSha256: string;
+    createdAt: string;
+};
+export type SemanticIndexBatch = {
+    repositoryId: string;
+    sourceRef: string;
+    strategy: IndexingChunkStrategy;
+    files: IndexedFileRecord[];
+    chunks: SemanticChunkRecord[];
+};
 export type DriftSignalCode = 'repository_count_mismatch' | 'member_count_mismatch' | 'installation_mismatch' | 'webhook_stale';
 export type DriftSignal = {
     code: DriftSignalCode;
