@@ -7,6 +7,7 @@ Current capabilities:
 - Configure API base URL and optional auth token.
 - Create/list organizations.
 - Create/list org members.
+- One-click Quick Connect for GitHub repositories (`owner/repo` or GitHub URL).
 - Create/list repositories.
 - Load/update repository rules.
 - Trigger/list review runs.
