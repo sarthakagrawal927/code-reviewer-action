@@ -55,3 +55,7 @@ v1 moves from standalone action setup to a hosted product with onboarding, repos
 - Stable PR scoring and explainable finding traceability
 - Historical PR quality metrics visible per repo and author
 - Value-added score visible on each reviewed PR
+
+## Decision Log
+
+Track unresolved engineering choices in `/Users/sarthakagrawal/Desktop/code-reviewer/docs/v1-technical-questions.md`.

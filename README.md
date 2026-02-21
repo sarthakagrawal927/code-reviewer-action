@@ -95,10 +95,12 @@ Use `@v0` for rolling latest v0 updates, or pin an immutable release tag such as
 ```bash
 npm run build
 npm test
+npm run build:v1-skeleton
 ```
 
 ## Roadmap Docs
 
 - v0 details: `docs/v0-lite.md`
 - v1 plan: `docs/v1-roadmap.md`
+- v1 open decisions: `docs/v1-technical-questions.md`
 - v2 plan: `docs/v2-roadmap.md`

@@ -1,8 +1,14 @@
 {
   "name": "@code-reviewer/worker-review",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo \"Worker review build placeholder\""
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@code-reviewer/shared-types": "workspace:*"
   }
 }
