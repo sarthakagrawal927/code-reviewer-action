@@ -368,6 +368,19 @@
               </select>
             </div>
           </div>
+          <div class="field-grid cols-2" style="margin-top: 10px">
+            <div>
+              <label for="github-app-install-url">GitHub App Install URL (optional)</label>
+              <input
+                id="github-app-install-url"
+                type="text"
+                placeholder="https://github.com/apps/<your-app>/installations/new"
+              />
+            </div>
+            <div style="display: flex; align-items: flex-end">
+              <button class="secondary" id="open-github-app-install">Open GitHub App Install</button>
+            </div>
+          </div>
           <div class="btn-row">
             <button class="primary" id="save-connection">Save Connection</button>
             <button class="secondary" id="test-health">Test /health</button>
@@ -470,7 +483,9 @@
 
         <section class="card wide" id="repos-card">
           <h2>Repositories</h2>
-          <p class="section-note">Attach repositories to an org (workspaceId = orgId in this skeleton).</p>
+          <p class="section-note">
+            Quick connect creates a local repo record in this backend skeleton. Live GitHub sync requires GitHub App installation.
+          </p>
           <div class="field-grid cols-3">
             <div>
               <label for="quick-connect-org-id">Quick Connect Org</label>
@@ -492,6 +507,7 @@
           <div class="btn-row">
             <button class="success" id="quick-connect-repo-btn">Connect GitHub Repo</button>
           </div>
+          <div id="repo-status" class="status warn">Repository connector idle.</div>
           <div class="field-grid cols-3">
             <div>
               <label for="repo-workspace-id">Workspace / Org ID</label>
@@ -719,7 +735,8 @@
     <script>
       const STORE_KEYS = {
         apiBaseUrl: 'cr_dashboard_api_base_url',
-        apiToken: 'cr_dashboard_api_token'
+        apiToken: 'cr_dashboard_api_token',
+        githubAppInstallUrl: 'cr_dashboard_github_app_install_url'
       };
 
       const state = {
@@ -730,6 +747,7 @@
       const refs = {
         apiBaseUrl: document.getElementById('api-base-url'),
         apiToken: document.getElementById('api-token'),
+        githubAppInstallUrl: document.getElementById('github-app-install-url'),
         connectionStatus: document.getElementById('connection-status'),
         activityLog: document.getElementById('activity-log'),
         selectedOrgGlobal: document.getElementById('selected-org-global'),
@@ -755,6 +773,7 @@
         quickConnectOrgId: document.getElementById('quick-connect-org-id'),
         quickConnectRepo: document.getElementById('quick-connect-repo'),
         quickConnectBranch: document.getElementById('quick-connect-branch'),
+        repoStatus: document.getElementById('repo-status'),
         reposTableBody: document.getElementById('repos-table-body'),
 
         rulesRepoId: document.getElementById('rules-repo-id'),
@@ -812,6 +831,11 @@
       function setConnectionStatus(text, kind = 'warn') {
         refs.connectionStatus.className = `status ${kind}`;
         refs.connectionStatus.textContent = text;
+      }
+
+      function setRepoStatus(text, kind = 'warn') {
+        refs.repoStatus.className = `status ${kind}`;
+        refs.repoStatus.textContent = text;
       }
 
       async function apiRequest(path, options = {}) {
@@ -899,15 +923,12 @@
         }
 
         let normalized = raw;
-        try {
+        if (/^https?:\/\//i.test(raw)) {
           const url = new URL(raw);
           if (!/github\.com$/i.test(url.hostname)) {
             throw new Error('Only github.com URLs are accepted.');
           }
-
           normalized = url.pathname;
-        } catch {
-          // Keep raw input and parse as owner/name.
         }
 
         normalized = normalized.replace(/^\//, '').replace(/\.git$/i, '').replace(/\/$/, '');
@@ -1053,9 +1074,11 @@
       }
 
       async function quickConnectRepo() {
-        const workspaceId = refs.quickConnectOrgId.value || refs.selectedOrgGlobal.value || refs.repoWorkspaceId.value.trim();
+        let workspaceId = refs.quickConnectOrgId.value || refs.selectedOrgGlobal.value || refs.repoWorkspaceId.value.trim();
         if (!workspaceId) {
-          throw new Error('Select an org first for quick connect.');
+          workspaceId = 'org_local';
+          setRepoStatus('No org selected. Using fallback workspace "org_local".', 'warn');
+          log('Quick connect using fallback workspace.', { workspaceId });
         }
 
         const parsed = parseGitHubRepoInput(refs.quickConnectRepo.value);
@@ -1068,6 +1091,7 @@
 
         const data = await apiRequest('/v1/repositories', { method: 'POST', body: payload });
         log('Quick connected repository.', data);
+        setRepoStatus(`Connected ${parsed.owner}/${parsed.name} -> ${workspaceId}`, 'ok');
 
         refs.repoWorkspaceId.value = workspaceId;
         refs.repoOwner.value = parsed.owner;
@@ -1274,6 +1298,7 @@
         const { baseUrl, token } = readConnection();
         localStorage.setItem(STORE_KEYS.apiBaseUrl, baseUrl);
         localStorage.setItem(STORE_KEYS.apiToken, token);
+        localStorage.setItem(STORE_KEYS.githubAppInstallUrl, refs.githubAppInstallUrl.value.trim());
         setConnectionStatus(`Saved connection for ${baseUrl}`, 'ok');
         log('Saved connection settings.');
       }
@@ -1281,12 +1306,26 @@
       function loadConnectionFromStorage() {
         const baseUrl = localStorage.getItem(STORE_KEYS.apiBaseUrl);
         const token = localStorage.getItem(STORE_KEYS.apiToken);
+        const githubAppInstallUrl = localStorage.getItem(STORE_KEYS.githubAppInstallUrl);
         if (baseUrl) {
           refs.apiBaseUrl.value = baseUrl;
         }
         if (token) {
           refs.apiToken.value = token;
         }
+        if (githubAppInstallUrl) {
+          refs.githubAppInstallUrl.value = githubAppInstallUrl;
+        }
+      }
+
+      function openGitHubAppInstall() {
+        const url = refs.githubAppInstallUrl.value.trim();
+        if (!url) {
+          throw new Error('Set GitHub App Install URL first.');
+        }
+
+        window.open(url, '_blank', 'noopener,noreferrer');
+        log('Opened GitHub App install URL.', { url });
       }
 
       function handleError(context, error) {
@@ -1307,6 +1346,7 @@
 
       function bindEvents() {
         bindAction('save-connection', saveConnection, 'Save connection');
+        bindAction('open-github-app-install', openGitHubAppInstall, 'Open GitHub App install');
         bindAction('test-health', loadHealth, 'Health check');
         bindAction('refresh-all', refreshAll, 'Refresh all');
 

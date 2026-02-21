@@ -5,6 +5,7 @@ This dashboard is now a working local frontend for the v1 skeleton backend.
 Current capabilities:
 
 - Configure API base URL and optional auth token.
+- Configure optional GitHub App install URL and open install flow.
 - Create/list organizations.
 - Create/list org members.
 - One-click Quick Connect for GitHub repositories (`owner/repo` or GitHub URL).
