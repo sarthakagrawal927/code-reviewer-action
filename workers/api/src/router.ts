@@ -1,4 +1,5 @@
 import {
+  DriftCheckInput,
   GitHubWebhookEnvelope,
   OrganizationMemberRecord,
   RepositoryRuleConfig,
@@ -122,6 +123,35 @@ function parseOrganizationMemberInput(
   };
 }
 
+function parseDriftCheckInput(body: unknown): DriftCheckInput {
+  if (!isObject(body)) {
+    return {};
+  }
+
+  const expectedRepositoryCount =
+    typeof body.expectedRepositoryCount === 'number' &&
+    Number.isInteger(body.expectedRepositoryCount) &&
+    body.expectedRepositoryCount >= 0
+      ? body.expectedRepositoryCount
+      : undefined;
+  const expectedMemberCount =
+    typeof body.expectedMemberCount === 'number' &&
+    Number.isInteger(body.expectedMemberCount) &&
+    body.expectedMemberCount >= 0
+      ? body.expectedMemberCount
+      : undefined;
+  const expectedInstallationId =
+    typeof body.expectedInstallationId === 'string' && body.expectedInstallationId.trim()
+      ? body.expectedInstallationId.trim()
+      : undefined;
+
+  return {
+    expectedRepositoryCount,
+    expectedMemberCount,
+    expectedInstallationId,
+  };
+}
+
 export async function routeRequest(context: HttpContext, deps: RouterDeps): Promise<HttpResponse> {
   const unauthorized = requireAuth(context, deps.authToken);
   if (unauthorized) {
@@ -222,6 +252,111 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
         },
       };
     }
+  }
+
+  const orgDriftCheckMatch = /^\/v1\/orgs\/([^/]+)\/drift\/check$/.exec(context.pathname);
+  if (orgDriftCheckMatch && context.method === 'GET') {
+    const organizationId = orgDriftCheckMatch[1];
+    if (!deps.store.getOrganization(organizationId)) {
+      return {
+        status: 404,
+        body: { error: 'organization_not_found', message: `Unknown organization: ${organizationId}` },
+      };
+    }
+
+    const checks = deps.store.listDriftChecks(organizationId);
+    return {
+      status: 200,
+      body: {
+        checks,
+        latest: checks.length > 0 ? checks[checks.length - 1] : null,
+      },
+    };
+  }
+
+  if (orgDriftCheckMatch && context.method === 'POST') {
+    const organizationId = orgDriftCheckMatch[1];
+    if (!deps.store.getOrganization(organizationId)) {
+      return {
+        status: 404,
+        body: { error: 'organization_not_found', message: `Unknown organization: ${organizationId}` },
+      };
+    }
+
+    const driftCheck = deps.store.runDriftCheck(organizationId, parseDriftCheckInput(context.body));
+    return {
+      status: 200,
+      body: {
+        driftCheck,
+        recommendation: driftCheck.driftDetected ? 'reconcile' : 'none',
+      },
+    };
+  }
+
+  const orgReconcileMatch = /^\/v1\/orgs\/([^/]+)\/reconcile$/.exec(context.pathname);
+  if (orgReconcileMatch && context.method === 'GET') {
+    const organizationId = orgReconcileMatch[1];
+    if (!deps.store.getOrganization(organizationId)) {
+      return {
+        status: 404,
+        body: { error: 'organization_not_found', message: `Unknown organization: ${organizationId}` },
+      };
+    }
+
+    return {
+      status: 200,
+      body: {
+        runs: deps.store.listReconcileRuns(organizationId),
+      },
+    };
+  }
+
+  if (orgReconcileMatch && context.method === 'POST') {
+    const organizationId = orgReconcileMatch[1];
+    if (!deps.store.getOrganization(organizationId)) {
+      return {
+        status: 404,
+        body: { error: 'organization_not_found', message: `Unknown organization: ${organizationId}` },
+      };
+    }
+
+    const latestCheck = deps.store.getLatestDriftCheck(organizationId);
+    const force = isObject(context.body) && Boolean(context.body.force);
+
+    if (!latestCheck) {
+      return {
+        status: 409,
+        body: {
+          error: 'drift_check_required',
+          message: 'Run POST /v1/orgs/:orgId/drift/check before starting reconcile.',
+        },
+      };
+    }
+
+    if (!latestCheck.driftDetected && !force) {
+      return {
+        status: 409,
+        body: {
+          error: 'no_drift_detected',
+          message: 'Latest drift check shows no drift. Reconcile is blocked unless force=true.',
+          driftCheck: latestCheck,
+        },
+      };
+    }
+
+    const run = deps.store.queueReconcileRun({
+      organizationId,
+      driftCheckId: latestCheck.id,
+      reason: latestCheck.driftDetected ? 'drift_detected' : 'forced',
+    });
+
+    return {
+      status: 202,
+      body: {
+        run,
+        message: 'Manual reconcile queued.',
+      },
+    };
   }
 
   if (context.method === 'POST' && context.pathname === '/v1/repositories') {

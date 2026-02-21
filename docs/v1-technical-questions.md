@@ -21,7 +21,7 @@ Use this file as the decision log for v1 implementation.
 - Current status: decided
 - Decision: Cloudflare Queues for async review/indexing jobs.
 - Topology: separate queues (`review-jobs`, `indexing-jobs`) in v1.
-- Retry policy: `3` retries before terminal failure / DLQ handoff.
+- Retry policy: `3` retries with exponential backoff before terminal failure / DLQ handoff.
 
 ## Q3. GitHub integration model
 
@@ -79,8 +79,12 @@ Use this file as the decision log for v1 implementation.
 - Options:
   - webhook-driven updates + periodic reconcile
   - webhook-only
-- Current status: deferred
-- Decision: defer to v1.1.
+- Current status: decided
+- Decision:
+  - v1: no automatic reconcile loop.
+  - v1: expose manual drift check action from dashboard/API.
+  - reconcile is user-triggered only, and only after drift is detected (unless force-triggered).
+  - periodic automatic reconcile remains deferred to v1.1.
 
 ## Q8. PR scoring versioning policy
 

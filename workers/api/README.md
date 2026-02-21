@@ -9,6 +9,10 @@ This worker is the hosted control-plane API skeleton for v1.
 - `POST /v1/orgs`
 - `GET /v1/orgs/:orgId/members`
 - `POST /v1/orgs/:orgId/members`
+- `GET /v1/orgs/:orgId/drift/check`
+- `POST /v1/orgs/:orgId/drift/check` (manual drift check, no auto reconcile)
+- `GET /v1/orgs/:orgId/reconcile`
+- `POST /v1/orgs/:orgId/reconcile` (manual trigger after drift check)
 - `GET /v1/repositories`
 - `POST /v1/repositories`
 - `GET /v1/rules/:repositoryId`

@@ -85,6 +85,51 @@ export type IndexingJobRecord = {
   errorMessage?: string;
 };
 
+export type DriftSignalCode =
+  | 'repository_count_mismatch'
+  | 'member_count_mismatch'
+  | 'installation_mismatch'
+  | 'webhook_stale';
+
+export type DriftSignal = {
+  code: DriftSignalCode;
+  message: string;
+};
+
+export type DriftCheckInput = {
+  expectedRepositoryCount?: number;
+  expectedMemberCount?: number;
+  expectedInstallationId?: string;
+};
+
+export type DriftCheckRecord = {
+  id: string;
+  organizationId: string;
+  checkedAt: string;
+  expectedRepositoryCount?: number;
+  expectedMemberCount?: number;
+  expectedInstallationId?: string;
+  observedRepositoryCount: number;
+  observedMemberCount: number;
+  observedInstallationIds: string[];
+  driftDetected: boolean;
+  signals: DriftSignal[];
+};
+
+export type ReconcileRunStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export type ReconcileRunRecord = {
+  id: string;
+  organizationId: string;
+  status: ReconcileRunStatus;
+  requestedBy: 'manual';
+  triggeredAt: string;
+  driftCheckId?: string;
+  reason: 'drift_detected' | 'forced';
+  completedAt?: string;
+  errorMessage?: string;
+};
+
 export type ReviewTriggerPayload = {
   repositoryId: string;
   prNumber: number;

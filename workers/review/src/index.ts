@@ -6,10 +6,17 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function computeBackoffMs(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
+  const factor = 2 ** Math.max(0, attempt - 1);
+  return Math.min(maxDelayMs, baseDelayMs * factor);
+}
+
 async function processJobWithRetry(
   job: Parameters<typeof handleJob>[0],
   maxRetries: number,
-  maxIndexFileBytes: number
+  maxIndexFileBytes: number,
+  retryBaseDelayMs: number,
+  retryMaxDelayMs: number
 ): Promise<void> {
   let attempt = 0;
 
@@ -23,10 +30,13 @@ async function processJobWithRetry(
       }
 
       attempt += 1;
+      const retryDelayMs = computeBackoffMs(attempt, retryBaseDelayMs, retryMaxDelayMs);
       const message = error instanceof Error ? error.message : String(error);
       console.warn(
-        `[worker-review] retry=${attempt}/${maxRetries} kind=${job.kind} reason=${message}`
+        `[worker-review] retry=${attempt}/${maxRetries} kind=${job.kind} ` +
+          `nextRetryInMs=${retryDelayMs} reason=${message}`
       );
+      await delay(retryDelayMs);
     }
   }
 }
@@ -38,6 +48,7 @@ async function run() {
   console.log(
     `[worker-review] started pollIntervalMs=${config.pollIntervalMs} ` +
       `maxIterations=${config.maxIterations} maxRetries=${config.maxRetries} ` +
+      `retryBaseMs=${config.retryBaseDelayMs} retryMaxMs=${config.retryMaxDelayMs} ` +
       `reviewQueue=${config.reviewQueueName} indexingQueue=${config.indexingQueueName} ` +
       `indexMaxFileBytes=${config.maxIndexFileBytes}`
   );
@@ -59,7 +70,13 @@ async function run() {
 
     for (const job of jobs) {
       try {
-        await processJobWithRetry(job, config.maxRetries, config.maxIndexFileBytes);
+        await processJobWithRetry(
+          job,
+          config.maxRetries,
+          config.maxIndexFileBytes,
+          config.retryBaseDelayMs,
+          config.retryMaxDelayMs
+        );
       } catch (error) {
         console.error(
           `[worker-review] job failed kind=${job.kind} error=${

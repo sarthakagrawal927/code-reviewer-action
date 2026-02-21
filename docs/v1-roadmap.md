@@ -11,6 +11,7 @@ v1 moves from standalone action setup to a hosted product with onboarding, repos
 ## Dashboard Scope
 
 - Repository connection and installation status
+- Manual drift check button (no auto reconcile in v1)
 - Rule configuration and severity thresholds
 - Review history and PR score timeline
 - Team/member views and ownership metrics
