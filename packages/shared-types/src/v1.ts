@@ -1,42 +1,8 @@
 export type ProviderType = 'github';
 
-export type OrganizationRecord = {
-  id: string;
-  slug: string;
-  displayName: string;
-  githubOrgId?: string;
-  githubInstallationId?: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type PolicySeverity = 'low' | 'medium' | 'high' | 'critical';
 
-export type OrganizationMemberRole = 'owner' | 'admin' | 'member';
-export type OrganizationMemberStatus = 'active' | 'invited' | 'removed';
-
-export type OrganizationMemberRecord = {
-  id: string;
-  organizationId: string;
-  githubUserId: string;
-  githubLogin: string;
-  role: OrganizationMemberRole;
-  status: OrganizationMemberStatus;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type RepositoryConnection = {
-  id: string;
-  workspaceId: string;
-  provider: ProviderType;
-  owner: string;
-  name: string;
-  fullName: string;
-  installationId?: string;
-  defaultBranch?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
+export type ReviewTone = 'strict' | 'balanced' | 'friendly';
 
 export type RuleSeverityThresholds = {
   low: boolean;
@@ -48,13 +14,162 @@ export type RuleSeverityThresholds = {
 export type RepositoryRuleConfig = {
   repositoryId: string;
   failOnFindings: boolean;
-  failOnSeverity: 'low' | 'medium' | 'high' | 'critical';
+  failOnSeverity: PolicySeverity;
   maxInlineFindings: number;
-  minInlineSeverity: 'low' | 'medium' | 'high' | 'critical';
-  reviewTone: 'strict' | 'balanced' | 'friendly';
+  minInlineSeverity: PolicySeverity;
+  reviewTone: ReviewTone;
   blockedPatterns: string[];
   requiredChecks: string[];
   severityThresholds: RuleSeverityThresholds;
+  updatedAt: string;
+};
+
+export type WorkspaceRuleDefaults = {
+  workspaceId: string;
+  schemaVersion: number;
+  failOnFindings: boolean;
+  failOnSeverity: PolicySeverity;
+  maxInlineFindings: number;
+  minInlineSeverity: PolicySeverity;
+  reviewTone: ReviewTone;
+  blockedPatterns: string[];
+  requiredChecks: string[];
+  severityThresholds: RuleSeverityThresholds;
+  updatedByUserId?: string;
+  updatedAt: string;
+};
+
+export type RepositoryRuleOverride = {
+  repositoryId: string;
+  schemaVersion: number;
+  failOnFindings: boolean;
+  failOnSeverity: PolicySeverity;
+  maxInlineFindings: number;
+  minInlineSeverity: PolicySeverity;
+  reviewTone: ReviewTone;
+  blockedPatterns: string[];
+  requiredChecks: string[];
+  severityThresholds: RuleSeverityThresholds;
+  updatedByUserId?: string;
+  updatedAt: string;
+};
+
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+export type WorkspaceMemberStatus = 'active' | 'invited' | 'suspended' | 'removed';
+
+export type WorkspaceKind = 'organization' | 'personal';
+
+export type GitHubAccountType = 'organization' | 'user';
+
+export type UserRecord = {
+  id: string;
+  githubUserId: string;
+  githubLogin: string;
+  displayName?: string;
+  avatarUrl?: string;
+  email?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SessionRecord = {
+  id: string;
+  userId: string;
+  sessionTokenHash: string;
+  expiresAt: string;
+  revokedAt?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceRecord = {
+  id: string;
+  slug: string;
+  name: string;
+  kind: WorkspaceKind;
+  githubAccountType?: GitHubAccountType;
+  githubAccountId?: string;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceMemberRecord = {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  githubUserId: string;
+  githubLogin: string;
+  role: WorkspaceRole;
+  status: WorkspaceMemberStatus;
+  invitedByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceInviteStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export type WorkspaceInviteRecord = {
+  id: string;
+  workspaceId: string;
+  inviteTokenHash: string;
+  inviteeGithubLogin?: string;
+  inviteeEmail?: string;
+  role: WorkspaceRole;
+  status: WorkspaceInviteStatus;
+  invitedByUserId: string;
+  acceptedByUserId?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GitHubInstallationRecord = {
+  id: string;
+  workspaceId: string;
+  installationId: string;
+  accountType: GitHubAccountType;
+  accountId: string;
+  accountLogin?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RepositoryConnection = {
+  id: string;
+  workspaceId: string;
+  provider: ProviderType;
+  owner: string;
+  name: string;
+  fullName: string;
+  githubRepoId?: string;
+  installationId?: string;
+  defaultBranch?: string;
+  isPrivate?: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PullRequestState = 'open' | 'closed' | 'merged';
+
+export type PullRequestRecord = {
+  id: string;
+  repositoryId: string;
+  githubPrId?: string;
+  prNumber: number;
+  title?: string;
+  authorGithubLogin?: string;
+  baseRef?: string;
+  headRef?: string;
+  headSha?: string;
+  state: PullRequestState;
+  mergedAt?: string;
+  closedAt?: string;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -63,14 +178,29 @@ export type ReviewRunStatus = 'queued' | 'running' | 'completed' | 'failed';
 export type ReviewRunRecord = {
   id: string;
   repositoryId: string;
+  pullRequestId?: string;
   prNumber: number;
   headSha: string;
+  triggerSource?: 'webhook' | 'manual' | 'scheduled' | 'action';
   status: ReviewRunStatus;
+  scoreVersion?: string;
   scoreComposite?: number;
   findingsCount?: number;
   startedAt?: string;
   completedAt?: string;
   errorMessage?: string;
+};
+
+export type ReviewFindingRecord = {
+  id: string;
+  reviewRunId: string;
+  severity: PolicySeverity;
+  title: string;
+  summary: string;
+  filePath?: string;
+  line?: number;
+  confidence?: number;
+  createdAt: string;
 };
 
 export type IndexingStatus = 'queued' | 'running' | 'completed' | 'failed';
@@ -80,6 +210,7 @@ export type IndexingJobRecord = {
   repositoryId: string;
   status: IndexingStatus;
   sourceRef?: string;
+  summary?: Record<string, unknown>;
   startedAt?: string;
   completedAt?: string;
   errorMessage?: string;
@@ -201,6 +332,98 @@ export type ReconcileRunRecord = {
   errorMessage?: string;
 };
 
+export type WebhookEventProcessingStatus = 'received' | 'processed' | 'ignored' | 'failed';
+
+export type GitHubWebhookEnvelope = {
+  id?: string;
+  event: string;
+  deliveryId: string;
+  signature256?: string;
+  signatureValid?: boolean;
+  processingStatus?: WebhookEventProcessingStatus;
+  payload: unknown;
+  receivedAt: string;
+  processedAt?: string;
+};
+
+export type AuditLogRecord = {
+  id: string;
+  workspaceId?: string;
+  actorUserId?: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string;
+  metadata: Record<string, unknown>;
+  requestId?: string;
+  createdAt: string;
+};
+
+export type WorkspaceSecretKind = 'gateway_api_key';
+
+export type WorkspaceSecretRecord = {
+  id: string;
+  workspaceId: string;
+  kind: WorkspaceSecretKind;
+  keyId?: string;
+  encryptedValue: string;
+  createdByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthStatePayload = {
+  nonce: string;
+  redirectTo?: string;
+};
+
+export type AuthSessionUser = {
+  id: string;
+  githubUserId: string;
+  githubLogin: string;
+  displayName?: string;
+  avatarUrl?: string;
+};
+
+export type AuthSessionWorkspace = {
+  id: string;
+  slug: string;
+  name: string;
+  role: WorkspaceRole;
+};
+
+export type AuthSessionResponse = {
+  authenticated: boolean;
+  user?: AuthSessionUser;
+  workspaces: AuthSessionWorkspace[];
+};
+
+export type CreateWorkspaceRequest = {
+  slug: string;
+  name: string;
+  kind: WorkspaceKind;
+  githubAccountType?: GitHubAccountType;
+  githubAccountId?: string;
+};
+
+export type CreateInviteRequest = {
+  role: WorkspaceRole;
+  inviteeGithubLogin?: string;
+  inviteeEmail?: string;
+  expiresInHours?: number;
+};
+
+export type UpdateWorkspaceMemberRequest = {
+  role?: WorkspaceRole;
+  status?: WorkspaceMemberStatus;
+};
+
+export type CreateActionReviewTriggerRequest = {
+  repositoryFullName: string;
+  prNumber: number;
+  headSha?: string;
+  workflowRunId?: string;
+};
+
 export type ReviewTriggerPayload = {
   repositoryId: string;
   prNumber: number;
@@ -223,10 +446,27 @@ export type IndexingJob = {
 
 export type WorkerJob = ReviewJob | IndexingJob;
 
-export type GitHubWebhookEnvelope = {
-  event: string;
-  deliveryId: string;
-  signature256?: string;
-  payload: unknown;
-  receivedAt: string;
+export type OrganizationRecord = {
+  id: string;
+  slug: string;
+  displayName: string;
+  githubOrgId?: string;
+  githubInstallationId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrganizationMemberRole = 'owner' | 'admin' | 'member';
+
+export type OrganizationMemberStatus = 'active' | 'invited' | 'removed';
+
+export type OrganizationMemberRecord = {
+  id: string;
+  organizationId: string;
+  githubUserId: string;
+  githubLogin: string;
+  role: OrganizationMemberRole;
+  status: OrganizationMemberStatus;
+  createdAt: string;
+  updatedAt: string;
 };

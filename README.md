@@ -1,74 +1,53 @@
-# AI Code Reviewer
+# AI Code Reviewer (Enterprise v1)
 
-Public GitHub Action for AI PR review.
+Enterprise control plane for GitHub-backed PR review automation.
 
-This repo currently ships **v0 Lite** and keeps a monorepo skeleton ready for **v1/v2**.
+## What Ships Now
 
-## v0 Lite (Shipped)
+- Platform-triggered GitHub Action (`platform_base_url` + `platform_token`)
+- Cloudflare Worker API control plane with:
+  - GitHub OAuth login/session
+  - Workspace RBAC (`owner`, `admin`, `member`, `viewer`)
+  - GitHub installation sync (org + personal account scope)
+  - Workspace default rules + repository overrides
+  - Pull request/review run tracking and manual triggers
+  - Webhook ingestion with signature validation + delivery idempotency
+  - Audit logs and encrypted workspace BYOK secret storage
+- Next.js multi-page dashboard (`apps/dashboard`)
+- Shared DB package (`packages/db`) with Cockroach/Postgres schema + migrations + typed adapters
 
-`v0` is intentionally small and fast to adopt:
-
-- BYOK via OpenAI-compatible gateway (`ai_base_url` + `ai_api_key`)
-- Runs on pull requests, reviews only the PR diff
-- Posts one summary comment + top inline findings
-- No backend, no persistence, no app signup
-
-## Why v0 Looks Like This
-
-- **BYOK first**: avoids vendor lock-in and removes key-hosting liability for us.
-- **Diff-only scope**: faster runtime and lower token cost per PR.
-- **Summary + inline output**: keeps signal in-context for reviewers.
-- **Stateless architecture**: simplest install and lowest ops burden.
-- **Advisory default**: non-blocking by default, optional fail gate when teams are ready.
-
-## v0 Reliability and Quality Guards
-
-- Summary comment is **idempotent** (reruns update previous bot summary).
-- Gateway call has **retry + backoff** for transient errors.
-- Findings are filtered to be **changed-line grounded**.
-- Speculative/cosmetic rename-style suggestions are suppressed.
-
-## Quickstart
+## GitHub Action Quickstart (v1)
 
 ```yaml
-name: AI Review Lite
-on: [pull_request]
+name: Trigger Enterprise Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
-      - uses: sarthakagrawal927/code-reviewer-action@v0
+      - uses: sarthakagrawal927/code-reviewer-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          ai_base_url: ${{ secrets.AI_BASE_URL }}
-          ai_api_key: ${{ secrets.AI_API_KEY }}
-          model: "gpt-4o-mini"
-          max_inline_findings: "5"
-          min_inline_severity: "medium"
+          platform_base_url: ${{ secrets.CODE_REVIEWER_PLATFORM_BASE_URL }}
+          platform_token: ${{ secrets.CODE_REVIEWER_PLATFORM_TOKEN }}
 ```
 
-Use `@v0` for rolling latest v0 updates, or pin an immutable release tag such as `@v0.0.1`.
-
-## Inputs
+## Action Inputs
 
 | Input | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `github_token` | Yes | `${{ github.token }}` | GitHub token for PR read/comment APIs |
-| `ai_base_url` | No | `https://api.openai.com/v1` | OpenAI-compatible gateway base URL |
-| `ai_api_key` | Yes | N/A | Gateway API key |
-| `model` | No | `gpt-4o-mini` | Model id exposed by your gateway |
-| `max_inline_findings` | No | `5` | Upper limit for inline comments |
-| `min_inline_severity` | No | `medium` | `low|medium|high|critical` |
-| `review_tone` | No | `balanced` | `strict|balanced|friendly` |
-| `fail_on_findings` | No | `false` | Fail check if threshold is hit |
-| `fail_on_severity` | No | `high` | Threshold when `fail_on_findings=true` |
-| `gateway_max_retries` | No | `1` | Retry count for transient gateway failures (`0-3`) |
+| `platform_base_url` | Yes | N/A | Platform API base URL |
+| `platform_token` | Yes | N/A | Bearer token used for `/v1/actions/reviews/trigger` |
+| `workflow_run_id` | No | `${{ github.run_id }}` fallback | Optional run id for traceability |
+| `request_timeout_ms` | No | `15000` | API timeout in milliseconds |
+
+Deprecated legacy v0 gateway inputs are intentionally rejected with a migration error.
 
 ## Monorepo Layout
 
@@ -82,6 +61,7 @@ Use `@v0` for rolling latest v0 updates, or pin an immutable release tag such as
 │   └── landing-page/
 ├── packages/
 │   ├── shared-types/
+│   ├── db/
 │   ├── ai-gateway-client/
 │   └── review-core/
 ├── workers/
@@ -95,12 +75,13 @@ Use `@v0` for rolling latest v0 updates, or pin an immutable release tag such as
 ```bash
 npm run build
 npm test
-npm run build:v1-skeleton
+npm run -w workers/api build
+npm run -w apps/dashboard build
 ```
 
 ## Roadmap Docs
 
 - v0 details: `docs/v0-lite.md`
 - v1 plan: `docs/v1-roadmap.md`
-- v1 open decisions: `docs/v1-technical-questions.md`
+- v1 technical decisions: `docs/v1-technical-questions.md`
 - v2 plan: `docs/v2-roadmap.md`

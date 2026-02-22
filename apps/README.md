@@ -1,12 +1,17 @@
 # Apps
 
-This repository currently contains two app surfaces:
+This repository contains two app surfaces:
 
-- `landing-page`: Public marketing page for the AI code reviewer roadmap.
-- `dashboard`: Internal-facing dashboard scaffold for policy/rules/indexing controls.
+- `landing-page`: public marketing surface.
+- `dashboard`: enterprise Next.js App Router control plane.
 
-## Roadmap Mapping
+## Dashboard Routes
 
-- Git interaction and PR context ingestion: represented in the landing-page product narrative.
-- Code review logic: represented in the landing-page workflow and feature sections.
-- Rules + indexing: represented as upcoming capabilities and reserved in the dashboard app scaffold.
+- `/login`
+- `/onboarding`
+- `/w/[workspaceSlug]/overview`
+- `/w/[workspaceSlug]/repositories`
+- `/w/[workspaceSlug]/rules`
+- `/w/[workspaceSlug]/pull-requests`
+- `/w/[workspaceSlug]/settings/members`
+- `/w/[workspaceSlug]/settings/audit`

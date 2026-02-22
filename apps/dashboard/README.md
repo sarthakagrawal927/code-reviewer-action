@@ -1,26 +1,28 @@
-# Dashboard App (Local Control Plane)
+# Dashboard App (Enterprise v1)
 
-This dashboard is now a working local frontend for the v1 skeleton backend.
+This app is now a Next.js App Router dashboard for the enterprise control plane.
 
-Current capabilities:
+## Routes
 
-- Configure API base URL and optional auth token.
-- Open GitHub App install flow (defaults to `core-reviewer` install URL).
-- Auto-bootstrap a default local workspace org (`local-workspace`) for simpler setup.
-- Proper one-click GitHub App connect for repositories (`owner/repo` or GitHub URL) with installation ID validation.
-- Sync all repositories from the active GitHub App installation into local repository records.
-- Run indexing for a selected repository/ref directly from the UI and inspect indexing run history.
-- Create/list repositories.
-- Load/update repository rules.
-- Trigger/list review runs.
-- Run drift checks and queue reconcile runs.
-- Simulate GitHub webhook events and inspect recorded events.
+- `/login`
+- `/onboarding`
+- `/w/[workspaceSlug]/overview`
+- `/w/[workspaceSlug]/repositories`
+- `/w/[workspaceSlug]/rules`
+- `/w/[workspaceSlug]/pull-requests`
+- `/w/[workspaceSlug]/settings/members`
+- `/w/[workspaceSlug]/settings/audit`
 
-Run locally:
+## Local Run
 
 ```bash
-cd /Users/sarthakagrawal/Desktop/code-reviewer/apps/dashboard
-python3 -m http.server 4174
+npm run -w apps/dashboard dev
 ```
 
-Then open: `http://localhost:4174`
+Default local URL: `http://localhost:4174`
+
+Set backend API base URL (optional):
+
+```bash
+export NEXT_PUBLIC_PLATFORM_API_BASE_URL=http://127.0.0.1:8787
+```

@@ -1156,18 +1156,53 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
       };
     }
 
-    const repositoryId = typeof context.body.repositoryId === 'string' ? context.body.repositoryId : '';
+    const repositoryId =
+      typeof context.body.repositoryId === 'string' ? context.body.repositoryId.trim() : '';
     const prNumber = typeof context.body.prNumber === 'number' ? context.body.prNumber : NaN;
-    const headSha = typeof context.body.headSha === 'string' ? context.body.headSha : '';
+    const headShaInput =
+      typeof context.body.headSha === 'string' && context.body.headSha.trim()
+        ? context.body.headSha.trim()
+        : undefined;
 
-    if (!repositoryId || !Number.isInteger(prNumber) || prNumber <= 0 || !headSha) {
+    if (!repositoryId || !Number.isInteger(prNumber) || prNumber <= 0) {
       return {
         status: 400,
         body: {
           error: 'invalid_review_payload',
-          message: 'repositoryId, prNumber, and headSha are required.',
+          message: 'repositoryId and prNumber are required.',
         },
       };
+    }
+
+    const repository = deps.store.getRepository(repositoryId);
+    if (!repository) {
+      return {
+        status: 404,
+        body: {
+          error: 'repository_not_found',
+          message: `Unknown repository: ${repositoryId}`,
+        },
+      };
+    }
+
+    let headSha = headShaInput;
+    let headShaSource: 'provided' | 'github' | 'synthetic' = headSha ? 'provided' : 'synthetic';
+    if (!headSha && deps.githubClient) {
+      try {
+        headSha = await deps.githubClient.getPullRequestHeadSha(
+          repository.owner,
+          repository.name,
+          prNumber
+        );
+        headShaSource = 'github';
+      } catch {
+        // Keep manual flow non-blocking in local mode when PR lookup is unavailable.
+      }
+    }
+
+    if (!headSha) {
+      headSha = `manual-${Date.now()}`;
+      headShaSource = 'synthetic';
     }
 
     const run: ReviewRunRecord = {
@@ -1184,6 +1219,7 @@ export async function routeRequest(context: HttpContext, deps: RouterDeps): Prom
       status: 202,
       body: {
         run,
+        headShaSource,
         message: 'Review run accepted (queue integration pending).',
       },
     };

@@ -1,45 +1,20 @@
 name: 'Sarthak AI Code Reviewer'
-description: 'Reviews Pull Requests using AI gateways (v0 Lite)'
+description: 'Enterprise v1 platform-backed review trigger action'
 author: 'Antigravity'
 inputs:
-  github_token:
-    description: 'GitHub Token'
+  platform_base_url:
+    description: 'Platform API base URL (for example https://api.your-company.com)'
     required: true
-    default: ${{ github.token }}
-  ai_base_url:
-    description: 'OpenAI-compatible gateway base URL (e.g. https://api.openai.com/v1)'
+  platform_token:
+    description: 'Platform action token for POST /v1/actions/reviews/trigger'
+    required: true
+  workflow_run_id:
+    description: 'Optional workflow run identifier forwarded to platform API'
     required: false
-  ai_api_key:
-    description: 'Gateway API key'
+  request_timeout_ms:
+    description: 'Request timeout in milliseconds for platform API trigger call'
     required: false
-  model:
-    description: 'Model to use at the gateway'
-    required: false
-    default: 'gpt-4o-mini'
-  max_inline_findings:
-    description: 'Maximum number of inline findings to post'
-    required: false
-    default: '5'
-  min_inline_severity:
-    description: 'Minimum severity for inline comments (low|medium|high|critical)'
-    required: false
-    default: 'medium'
-  review_tone:
-    description: 'Review tone (strict|balanced|friendly)'
-    required: false
-    default: 'balanced'
-  fail_on_findings:
-    description: 'Fail the workflow if findings at or above threshold exist'
-    required: false
-    default: 'false'
-  fail_on_severity:
-    description: 'Severity threshold for fail_on_findings (low|medium|high|critical)'
-    required: false
-    default: 'high'
-  gateway_max_retries:
-    description: 'Retry count for transient gateway failures (0-3)'
-    required: false
-    default: '1'
+    default: '15000'
 runs:
   using: 'node20'
   main: 'dist/index.js'

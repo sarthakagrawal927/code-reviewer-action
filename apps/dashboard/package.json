@@ -1,9 +1,20 @@
 {
   "name": "@code-reviewer/dashboard",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "echo \"Dashboard static build (no-op)\"",
-    "start": "python3 -m http.server 4174"
+    "dev": "next dev -p 4174",
+    "build": "next build",
+    "start": "next start -p 4174"
+  },
+  "dependencies": {
+    "@code-reviewer/shared-types": "file:../../packages/shared-types",
+    "next": "^15.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6"
   }
 }

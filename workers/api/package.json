@@ -1,14 +1,21 @@
 {
   "name": "@code-reviewer/worker-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@code-reviewer/shared-types": "file:../../packages/shared-types"
+    "@code-reviewer/db": "file:../../packages/db",
+    "@code-reviewer/shared-types": "file:../../packages/shared-types",
+    "hono": "^4.7.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260215.0",
+    "wrangler": "^4.3.0"
   }
 }

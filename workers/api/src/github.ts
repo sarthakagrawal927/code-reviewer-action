@@ -134,6 +134,18 @@ export class GitHubClient {
     return toGitHubRepository(result.body, { owner, name });
   }
 
+  async getPullRequestHeadSha(owner: string, name: string, prNumber: number): Promise<string> {
+    const result = await this.requestJson<unknown>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls/${prNumber}`
+    );
+
+    if (!isObject(result.body) || !isObject(result.body.head) || typeof result.body.head.sha !== 'string') {
+      throw new GitHubApiError('Unable to resolve PR head SHA from GitHub.');
+    }
+
+    return result.body.head.sha;
+  }
+
   async listCurrentInstallationRepositories(): Promise<GitHubRepository[]> {
     const repositories: GitHubRepository[] = [];
     const perPage = 100;

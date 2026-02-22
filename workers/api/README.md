@@ -1,54 +1,76 @@
-# API Worker Skeleton (v1)
+# API Worker (Enterprise v1)
 
-This worker is the hosted control-plane API skeleton for v1.
+Cloudflare Worker control-plane API for authentication, workspace tenancy, GitHub installation sync, rules, PR/review tracking, and action/webhook ingestion.
 
-## Current Endpoints
+## Runtime
 
-- `GET /health`
-- `GET /v1/orgs`
-- `POST /v1/orgs`
-- `POST /v1/github/connect-repository` (proper GitHub App installation-token repository connect)
-- `POST /v1/github/sync-installation-repositories` (bulk import all repositories from the current installation token)
-- `POST /v1/indexing/trigger` (run tree-sitter indexing for one connected repo + ref)
-- `GET /v1/indexing/runs`
-- `GET /v1/indexing/latest/:repositoryId`
-- `GET /v1/orgs/:orgId/members`
-- `POST /v1/orgs/:orgId/members`
-- `GET /v1/orgs/:orgId/drift/check`
-- `POST /v1/orgs/:orgId/drift/check` (manual drift check, no auto reconcile)
-- `GET /v1/orgs/:orgId/reconcile`
-- `POST /v1/orgs/:orgId/reconcile` (manual trigger after drift check)
-- `GET /v1/repositories`
-- `POST /v1/repositories`
-- `GET /v1/rules/:repositoryId`
-- `PUT /v1/rules/:repositoryId`
-- `GET /v1/reviews`
-- `POST /v1/reviews/trigger`
-- `POST /webhooks/github`
-- `GET /v1/webhooks/events`
+- Framework: Hono
+- Target: Cloudflare Workers (`wrangler.toml`)
+- Compatibility: legacy skeleton routes are still available through compatibility fallback in `src/index.ts`.
 
-All data is currently in-memory only.
+## Primary Endpoints
 
-## Run
+### Auth
+- `GET /v1/auth/github/start`
+- `GET /v1/auth/github/callback`
+- `GET /v1/auth/session`
+- `POST /v1/auth/logout`
+
+### Workspaces + Members
+- `GET /v1/workspaces`
+- `POST /v1/workspaces`
+- `GET /v1/workspaces/:workspaceId`
+- `GET /v1/workspaces/:workspaceId/members`
+- `POST /v1/workspaces/:workspaceId/invites`
+- `PATCH /v1/workspaces/:workspaceId/members/:memberId`
+
+### GitHub + Repositories
+- `GET /v1/workspaces/:workspaceId/github/installations`
+- `POST /v1/workspaces/:workspaceId/github/sync`
+- `GET /v1/workspaces/:workspaceId/repositories`
+- `POST /v1/workspaces/:workspaceId/repositories/:repositoryId/indexing/trigger`
+
+### Rules
+- `GET /v1/workspaces/:workspaceId/rules/default`
+- `PUT /v1/workspaces/:workspaceId/rules/default`
+- `GET /v1/repositories/:repositoryId/rules`
+- `PUT /v1/repositories/:repositoryId/rules`
+- `GET /v1/repositories/:repositoryId/rules/effective`
+
+### PR + Reviews
+- `GET /v1/repositories/:repositoryId/pull-requests`
+- `GET /v1/pull-requests/:pullRequestId/reviews`
+- `POST /v1/pull-requests/:pullRequestId/reviews/trigger`
+- `GET /v1/review-runs/:reviewRunId/findings`
+
+### Security + Ops
+- `POST /v1/webhooks/github`
+- `POST /v1/actions/reviews/trigger`
+- `GET /v1/workspaces/:workspaceId/audit`
+- `PUT /v1/workspaces/:workspaceId/secrets/gateway`
+- `GET /v1/workspaces/:workspaceId/secrets/gateway`
+
+## Local Development
 
 ```bash
-npm run -w workers/review build   # required once for tree-sitter indexing module
 npm run -w workers/api build
-npm run -w workers/api start
+npm run -w workers/api dev
 ```
 
-Optional env vars:
+## Key Bindings
 
-- `API_WORKER_HOST` (default `127.0.0.1`)
-- `API_WORKER_PORT` (default `8080`)
-- `API_WORKER_AUTH_TOKEN` (if set, requires `Authorization: Bearer <token>`)
-- `API_WORKER_CORS_ORIGIN` (default `*`, set your dashboard origin in production)
-- `GITHUB_API_BASE_URL` (default `https://api.github.com`)
-- `GITHUB_DRIFT_CHECK_TOKEN` (required for live GitHub drift check endpoint)
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GITHUB_OAUTH_REDIRECT_URI`
+- `SESSION_SECRET`
+- `GITHUB_WEBHOOK_SECRET`
+- `PLATFORM_ACTION_TOKEN`
+- `WORKSPACE_SECRET_ENCRYPTION_KEY`
+- `API_WORKER_CORS_ORIGIN`
+- `APP_BASE_URL`
 
-## Next Integration Steps
+Optional:
 
-1. Replace in-memory store with Postgres adapter.
-2. Replace static token env with GitHub App installation token mint/refresh flow.
-3. Publish review/index jobs to durable queue.
-4. Add authN/authZ for workspaces and org membership.
+- `GITHUB_SYNC_TOKEN`
+- `RATE_LIMIT_WINDOW_MS`
+- `RATE_LIMIT_MAX_REQUESTS`

@@ -1,38 +1,15 @@
 {
-  "name": "landwind",
-  "version": "1.0.0",
-  "description": "Landwind is a free and open-source landing page built with Tailwind CSS and Flowbite for SaaS and product websites.",
-  "main": "index.js",
+  "name": "@code-reviewer/landing-page",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/themesberg/landwind.git"
-  },
-  "keywords": [
-    "landing",
-    "page",
-    "tailwind",
-    "tailwind",
-    "css",
-    "flowbite",
-    "responsive",
-    "html",
-    "css",
-    "javascript",
-    "design"
-  ],
-  "author": "Themesberg",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/themesberg/landwind/issues"
-  },
-  "homepage": "https://github.com/themesberg/landwind#readme",
-  "devDependencies": {
-    "tailwindcss": "^3.1.4"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
-    "flowbite": "^1.4.7"
+    "next": "^15.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   }
 }
