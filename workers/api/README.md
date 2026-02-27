@@ -6,7 +6,7 @@ Cloudflare Worker control-plane API for authentication, workspace tenancy, GitHu
 
 - Framework: Hono
 - Target: Cloudflare Workers (`wrangler.toml`)
-- Compatibility: legacy skeleton routes are still available through compatibility fallback in `src/index.ts`.
+- Persistence: CockroachDB (Postgres wire protocol) via `COCKROACH_DATABASE_URL`
 
 ## Primary Endpoints
 
@@ -59,6 +59,7 @@ npm run -w workers/api dev
 
 ## Key Bindings
 
+- `COCKROACH_DATABASE_URL`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_OAUTH_REDIRECT_URI`
@@ -71,6 +72,14 @@ npm run -w workers/api dev
 
 Optional:
 
+- `DB_USE_IN_MEMORY` (`true` to force in-memory adapter)
+- `DB_MAX_CONNECTIONS` (defaults to `10`)
 - `GITHUB_SYNC_TOKEN`
 - `RATE_LIMIT_WINDOW_MS`
 - `RATE_LIMIT_MAX_REQUESTS`
+
+## Schema Migration
+
+```bash
+cockroach sql --url "$COCKROACH_DATABASE_URL" < packages/db/migrations/0001_init.sql
+```

@@ -17,17 +17,16 @@ import {
 } from '@code-reviewer/shared-types';
 import {
   ControlPlaneDatabase,
-  InMemoryControlPlaneDatabase,
+  createControlPlaneDatabase,
   UpsertGithubUserInput
 } from '@code-reviewer/db';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { Context, Hono } from 'hono';
-import { GitHubClient } from './github';
-import { routeRequest } from './router';
-import { InMemoryApiStore } from './store';
 
 type ApiWorkerBindings = {
-  API_WORKER_AUTH_TOKEN?: string;
+  COCKROACH_DATABASE_URL?: string;
+  DB_USE_IN_MEMORY?: string;
+  DB_MAX_CONNECTIONS?: string;
   API_WORKER_CORS_ORIGIN?: string;
   APP_BASE_URL?: string;
   SESSION_COOKIE_NAME?: string;
@@ -40,7 +39,6 @@ type ApiWorkerBindings = {
   GITHUB_OAUTH_REDIRECT_URI?: string;
   GITHUB_WEBHOOK_SECRET?: string;
   GITHUB_API_BASE_URL?: string;
-  GITHUB_DRIFT_CHECK_TOKEN?: string;
   GITHUB_SYNC_TOKEN?: string;
   PLATFORM_ACTION_TOKEN?: string;
   WORKSPACE_SECRET_ENCRYPTION_KEY?: string;
@@ -51,8 +49,8 @@ type ApiWorkerVariables = {
 };
 
 const app = new Hono<{ Bindings: ApiWorkerBindings; Variables: ApiWorkerVariables }>();
-const db: ControlPlaneDatabase = new InMemoryControlPlaneDatabase();
-const legacyStore = new InMemoryApiStore();
+let db: ControlPlaneDatabase = createControlPlaneDatabase({ useInMemory: true });
+let dbConfigFingerprint = '';
 const rateLimiterState = new Map<string, { count: number; resetAt: number }>();
 
 type ApiContext = Context<{ Bindings: ApiWorkerBindings; Variables: ApiWorkerVariables }>;
@@ -145,6 +143,45 @@ function getRateLimitMaxRequests(env: ApiWorkerBindings): number {
   }
 
   return parsed;
+}
+
+function shouldUseInMemoryDb(env: ApiWorkerBindings): boolean {
+  return env.DB_USE_IN_MEMORY?.trim().toLowerCase() === 'true';
+}
+
+function getDbMaxConnections(env: ApiWorkerBindings): number | undefined {
+  const raw = env.DB_MAX_CONNECTIONS?.trim();
+  if (!raw) {
+    return undefined;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function resolveControlPlaneDb(env: ApiWorkerBindings): ControlPlaneDatabase {
+  const useInMemory = shouldUseInMemoryDb(env);
+  const cockroachDatabaseUrl = env.COCKROACH_DATABASE_URL?.trim();
+  const maxConnections = getDbMaxConnections(env);
+  const fingerprint = `${useInMemory ? 'memory' : 'cockroach'}:${cockroachDatabaseUrl || ''}:${maxConnections || ''}`;
+
+  if (fingerprint === dbConfigFingerprint) {
+    return db;
+  }
+
+  db = createControlPlaneDatabase({
+    cockroachDatabaseUrl,
+    useInMemory,
+    applicationName: 'code-reviewer-api',
+    maxConnections
+  });
+  dbConfigFingerprint = fingerprint;
+
+  return db;
 }
 
 function normalizeSlug(value: string): string {
@@ -717,6 +754,8 @@ function actionCanTriggerReview(action: string): boolean {
 }
 
 app.use('*', async (c, next) => {
+  resolveControlPlaneDb(c.env);
+
   const requestId = crypto.randomUUID();
   c.set('requestId', requestId);
 
@@ -2196,53 +2235,14 @@ app.post('/v1/actions/reviews/trigger', async c => {
   );
 });
 
-async function handleLegacyCompatibilityRoute(request: Request, env: ApiWorkerBindings): Promise<Response> {
-  const url = new URL(request.url);
-  let body: unknown;
-  if (request.method.toUpperCase() !== 'GET') {
-    const text = await request.text();
-    if (text.trim()) {
-      try {
-        body = JSON.parse(text);
-      } catch {
-        body = undefined;
-      }
-    }
-  }
-
-  const headers: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    headers[key.toLowerCase()] = value;
-  });
-
-  const githubToken = env.GITHUB_DRIFT_CHECK_TOKEN?.trim() || env.GITHUB_SYNC_TOKEN?.trim();
-  const githubClient = githubToken
-    ? new GitHubClient({
-        baseUrl: env.GITHUB_API_BASE_URL?.trim() || 'https://api.github.com',
-        token: githubToken
-      })
-    : undefined;
-
-  const result = await routeRequest(
-    {
-      method: request.method.toUpperCase(),
-      pathname: url.pathname,
-      query: url.searchParams,
-      body,
-      headers
-    },
-    {
-      store: legacyStore,
-      authToken: env.API_WORKER_AUTH_TOKEN,
-      githubClient
-    }
-  );
-
-  return jsonResponse(result.body, result.status);
-}
-
 app.all('*', async c => {
-  return handleLegacyCompatibilityRoute(c.req.raw, c.env);
+  return jsonResponse(
+    {
+      error: 'not_found',
+      message: `No route matches ${c.req.method} ${new URL(c.req.url).pathname}`
+    },
+    404
+  );
 });
 
 export default app;
