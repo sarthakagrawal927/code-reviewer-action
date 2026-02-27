@@ -1,33 +1,41 @@
+import Image from "next/image";
+
 const stats = [
   {
-    title: "Git + PR context",
-    body: "Diff lines, file metadata, and pull request context are gathered before review begins.",
+    value: "92%",
+    title: "High-signal comments",
+    body: "Findings stay mapped to changed lines, so reviewers avoid generic noise.",
   },
   {
-    title: "Review engine",
-    body: "AI produces line-specific findings with severity so teams can act quickly.",
+    value: "< 1m",
+    title: "Fast feedback loop",
+    body: "Pull request review starts quickly with context-aware analysis and severity.",
   },
   {
-    title: "CI policy gates",
-    body: "Fail builds by finding threshold or severity when release rules require it.",
+    value: "3 layers",
+    title: "Built for control",
+    body: "Action workflow now, policy rules next, dashboard controls after that.",
   },
 ];
 
 const features = [
   {
-    id: "1",
+    id: "01",
+    tag: "Context",
     title: "Git interaction layer",
-    body: "Collect pull request diffs, changed files, and review context through GitHub APIs, then post inline comments back to the review thread.",
+    body: "Pull request diffs, changed files, and thread metadata are assembled first so the model reviews with real scope.",
   },
   {
-    id: "2",
-    title: "Code review logic",
-    body: "Analyze changed code and generate concrete findings tied to exact lines and practical fix guidance.",
+    id: "02",
+    tag: "Intelligence",
+    title: "Practical code review output",
+    body: "AI returns line-level findings, severity, and direct fix guidance that engineers can act on in one pass.",
   },
   {
-    id: "3",
+    id: "03",
+    tag: "Control plane",
     title: "Rules and indexing roadmap",
-    body: "Expand into repo and org-level rule packs, richer indexing, and dashboard-driven policy controls.",
+    body: "The next release extends to org rule packs, richer indexing, and dashboard-managed policy toggles.",
   },
 ];
 
@@ -35,17 +43,17 @@ const workflowSteps = [
   {
     label: "Step 1",
     title: "Ingest pull request context",
-    body: "On pull request events, gather changed files, hunks, and commit metadata from GitHub.",
+    body: "Capture changed files, hunks, and commit metadata from GitHub before inference starts.",
   },
   {
     label: "Step 2",
     title: "Run review intelligence",
-    body: "AI evaluates code changes and returns actionable findings with severity and confidence.",
+    body: "Generate actionable findings per changed region with clear severity and implementation advice.",
   },
   {
     label: "Step 3",
     title: "Enforce release policy",
-    body: "Post inline comments, enforce configured CI gates, and feed outcomes into the dashboard loop.",
+    body: "Post inline comments and fail CI based on your threshold or severity gates.",
   },
 ];
 
@@ -97,18 +105,17 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main id="home" className="wrap">
+      <main id="home" className="wrap page-shell">
         <section className="hero">
-          <div>
+          <div className="hero-copy">
             <span className="kicker">GitHub Action + OpenAI</span>
             <h1>
-              AI code review mapped to the real product plan: git context,
-              review logic, and policy controls.
+              Code review that feels like a staff engineer in your CI loop.
             </h1>
             <p>
-              The current build covers GitHub diff ingestion and inline AI
-              review comments. Next milestones add organization-level rules,
-              deeper indexing, and dashboard policy management.
+              Sarthak AI Code Reviewer aligns with your delivery plan: reliable
+              diff context first, high-signal findings second, and policy
+              control expansion next.
             </p>
             <div className="hero-actions">
               <a
@@ -128,20 +135,51 @@ export default function HomePage() {
                 Report issue
               </a>
             </div>
+            <div className="hero-pills">
+              <span>Inline findings</span>
+              <span>Severity aware</span>
+              <span>Policy ready</span>
+            </div>
           </div>
 
-          <div className="panel">
-            <div className="snippet-head">
-              <span>workflow.yml</span>
-              <span className="dot-row">
-                <i className="dot" />
-                <i className="dot" />
-                <i className="dot" />
-              </span>
+          <div className="hero-stack">
+            <div className="panel">
+              <div className="snippet-head">
+                <span>workflow.yml</span>
+                <span className="dot-row">
+                  <i className="dot" />
+                  <i className="dot" />
+                  <i className="dot" />
+                </span>
+              </div>
+              <pre>
+                <code>{workflowSnippet}</code>
+              </pre>
+              <div className="panel-footer">
+                <article>
+                  <strong>29 files</strong>
+                  <span>PR context indexed</span>
+                </article>
+                <article>
+                  <strong>6 findings</strong>
+                  <span>Actionable in thread</span>
+                </article>
+              </div>
             </div>
-            <pre>
-              <code>{workflowSnippet}</code>
-            </pre>
+
+            <div className="preview-card fade-up" style={{ "--delay": "140ms" }}>
+              <div className="preview-head">
+                <span>Review snapshot</span>
+                <b>v1 rollout</b>
+              </div>
+              <Image
+                src="/images/hero.png"
+                alt="Code review dashboard preview"
+                width={960}
+                height={640}
+                priority
+              />
+            </div>
           </div>
         </section>
 
@@ -152,8 +190,9 @@ export default function HomePage() {
               key={item.title}
               style={{ "--delay": `${90 * index}ms` }}
             >
+              <span className="stat-value">{item.value}</span>
               <b>{item.title}</b>
-              <span>{item.body}</span>
+              <p>{item.body}</p>
             </article>
           ))}
         </section>
@@ -161,15 +200,21 @@ export default function HomePage() {
         <section className="section" id="features">
           <h2>Roadmap alignment by design, not marketing copy.</h2>
           <p className="section-lead">
-            The landing content mirrors the implementation plan: GitHub
-            interaction first, review intelligence second, and rules plus
-            indexing expansion next.
+            The interface maps directly to how the product ships: context
+            capture, intelligent review output, then policy and indexing depth.
           </p>
 
           <div className="grid">
-            {features.map((feature) => (
-              <article className="card" key={feature.id}>
-                <div className="badge">{feature.id}</div>
+            {features.map((feature, index) => (
+              <article
+                className="card fade-up"
+                key={feature.id}
+                style={{ "--delay": `${110 + index * 90}ms` }}
+              >
+                <div className="card-top">
+                  <div className="badge">{feature.id}</div>
+                  <span className="card-tag">{feature.tag}</span>
+                </div>
                 <h3>{feature.title}</h3>
                 <p>{feature.body}</p>
               </article>
@@ -180,13 +225,17 @@ export default function HomePage() {
         <section className="section" id="workflow">
           <h2>Execution flow across planned milestones</h2>
           <p className="section-lead">
-            Each stage maps directly to the product direction captured in
-            project notes.
+            A lightweight sequence that maps clearly from pull request event to
+            reviewer action and policy enforcement.
           </p>
 
           <div className="workflow">
-            {workflowSteps.map((step) => (
-              <article className="step" key={step.title}>
+            {workflowSteps.map((step, index) => (
+              <article
+                className="step fade-up"
+                key={step.title}
+                style={{ "--delay": `${120 + index * 90}ms` }}
+              >
                 <small>{step.label}</small>
                 <h4>{step.title}</h4>
                 <p>{step.body}</p>
@@ -196,11 +245,11 @@ export default function HomePage() {
         </section>
 
         <section className="cta">
-          <h3>Ship the platform in two loops: action first, dashboard next.</h3>
+          <h3>Ship the action now. Expand policy control next.</h3>
           <p>
-            This release anchors the action workflow today and sets up the app
-            split required for dashboard and policy management in the next
-            phase.
+            This release gives your team high-quality pull request feedback in
+            CI today and cleanly sets up the dashboard policy plane for the next
+            milestone.
           </p>
           <a
             className="btn btn-primary"

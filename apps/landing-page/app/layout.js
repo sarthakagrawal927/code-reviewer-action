@@ -1,16 +1,22 @@
-import { IBM_Plex_Mono, Sora } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans, Syne } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
+const display = Syne({
   subsets: ["latin"],
-  weight: ["400", "500", "700", "800"],
-  variable: "--font-sora",
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-display",
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
+const body = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-ibm-plex-mono",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-mono",
 });
 
 export const metadata = {
@@ -27,7 +33,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${sora.variable} ${ibmPlexMono.variable}`}
+      className={`${display.variable} ${body.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
       <body>{children}</body>
