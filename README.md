@@ -79,6 +79,17 @@ npm run -w workers/api build
 npm run -w apps/dashboard build
 ```
 
+## CockroachDB Wiring
+
+`workers/api` now uses CockroachDB when `COCKROACH_DATABASE_URL` is configured.
+If it is not set (or `DB_USE_IN_MEMORY=true`), the API falls back to in-memory storage.
+
+Apply schema migrations:
+
+```bash
+cockroach sql --url "$COCKROACH_DATABASE_URL" < packages/db/migrations/0001_init.sql
+```
+
 ## Roadmap Docs
 
 - v0 details: `docs/v0-lite.md`
