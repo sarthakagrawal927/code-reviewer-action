@@ -1,6 +1,11 @@
 import { AuthSessionResponse, WorkspaceRecord } from '@code-reviewer/shared-types';
 import { cookies } from 'next/headers';
 
+const UNAUTHENTICATED_SESSION: AuthSessionResponse = {
+  authenticated: false,
+  workspaces: []
+};
+
 export function getPlatformApiBaseUrl(): string {
   const value =
     process.env.PLATFORM_API_BASE_URL || process.env.NEXT_PUBLIC_PLATFORM_API_BASE_URL || 'http://127.0.0.1:8787';
@@ -34,7 +39,15 @@ export async function platformFetch<T>(path: string, init?: RequestInit): Promis
 }
 
 export async function getSession(): Promise<AuthSessionResponse> {
-  return platformFetch<AuthSessionResponse>('/v1/auth/session');
+  try {
+    return await platformFetch<AuthSessionResponse>('/v1/auth/session');
+  } catch (error) {
+    // Allow dashboard routes to render when the API worker is temporarily unavailable.
+    if (error instanceof TypeError) {
+      return UNAUTHENTICATED_SESSION;
+    }
+    throw error;
+  }
 }
 
 export async function getWorkspaceBySlug(slug: string): Promise<(WorkspaceRecord & { role: string }) | null> {
