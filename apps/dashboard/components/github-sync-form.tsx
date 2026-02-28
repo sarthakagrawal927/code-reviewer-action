@@ -27,7 +27,10 @@ export function GitHubSyncForm({ workspaceId }: { workspaceId: string }) {
 
   return (
     <section className="panel">
-      <h2>GitHub Installation Sync</h2>
+      <div className="section-head">
+        <h2>GitHub Installation Sync</h2>
+        <p>Import repositories</p>
+      </div>
       <p className="muted">Sync organization or personal installation repositories into workspace records.</p>
       <div className="stack">
         <div className="form-grid">
@@ -99,7 +102,7 @@ export function GitHubSyncForm({ workspaceId }: { workspaceId: string }) {
           </button>
         </div>
 
-        {status ? <pre>{status}</pre> : null}
+        {status ? <pre className="response-pre">{status}</pre> : null}
       </div>
     </section>
   );

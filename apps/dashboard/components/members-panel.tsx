@@ -26,7 +26,10 @@ export function MembersPanel({ workspaceId, members }: { workspaceId: string; me
   return (
     <div className="stack">
       <section className="panel">
-        <h2>Create Invite</h2>
+        <div className="section-head">
+          <h2>Create Invite</h2>
+          <p>Invite collaborators</p>
+        </div>
         <div className="form-grid">
           <div>
             <label htmlFor="invitee-github-login">Invitee GitHub Login</label>
@@ -79,7 +82,10 @@ export function MembersPanel({ workspaceId, members }: { workspaceId: string; me
       </section>
 
       <section className="panel">
-        <h2>Update Member</h2>
+        <div className="section-head">
+          <h2>Update Member</h2>
+          <p>Role and status updates</p>
+        </div>
         <div className="form-grid">
           <div>
             <label htmlFor="member-id">Member</label>
@@ -151,7 +157,7 @@ export function MembersPanel({ workspaceId, members }: { workspaceId: string; me
         </div>
       </section>
 
-      {status ? <pre>{status}</pre> : null}
+      {status ? <pre className="response-pre">{status}</pre> : null}
     </div>
   );
 }

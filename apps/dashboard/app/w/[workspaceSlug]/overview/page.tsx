@@ -26,60 +26,98 @@ export default async function WorkspaceOverviewPage({
   return (
     <>
       <article className="panel span-4">
-        <h2>Workspace</h2>
-        <div className="stack">
-          <div>
-            <strong>Name:</strong> {workspace.name}
+        <div className="section-head">
+          <h2>Workspace</h2>
+          <p>Identity</p>
+        </div>
+        <div className="kv-list">
+          <div className="kv-row">
+            <strong>Name</strong>
+            <span>{workspace.name}</span>
           </div>
-          <div>
-            <strong>Role:</strong> {workspace.role}
+          <div className="kv-row">
+            <strong>Role</strong>
+            <span>{workspace.role}</span>
           </div>
-          <div>
-            <strong>Slug:</strong> {workspace.slug}
+          <div className="kv-row">
+            <strong>Slug</strong>
+            <span>{workspace.slug}</span>
           </div>
         </div>
       </article>
 
       <article className="panel span-4">
-        <h2>Installations</h2>
-        <div className="stack">
-          <div>
-            <strong>Total:</strong> {installations.installations.length}
+        <div className="section-head">
+          <h2>Installations</h2>
+          <p>Connected providers</p>
+        </div>
+        <div className="kv-list">
+          <div className="kv-row">
+            <strong>Total</strong>
+            <span>{installations.installations.length}</span>
           </div>
           {installations.installations.slice(0, 3).map(installation => (
-            <div key={installation.id} className="muted">
-              #{installation.installationId} ({installation.accountType}/{installation.accountLogin || 'n/a'})
+            <div className="kv-row" key={installation.id}>
+              <strong>#{installation.installationId}</strong>
+              <span>
+                {installation.accountType}/{installation.accountLogin || 'n/a'}
+              </span>
             </div>
           ))}
         </div>
       </article>
 
       <article className="panel span-4">
-        <h2>Repositories</h2>
-        <div className="stack">
-          <div>
-            <strong>Total:</strong> {repositories.repositories.length}
+        <div className="section-head">
+          <h2>Repositories</h2>
+          <p>Active scope</p>
+        </div>
+        <div className="kv-list">
+          <div className="kv-row">
+            <strong>Total</strong>
+            <span>{repositories.repositories.length}</span>
           </div>
           {repositories.repositories.slice(0, 3).map(repository => (
-            <div key={repository.id} className="muted">
-              {repository.fullName}
+            <div className="kv-row" key={repository.id}>
+              <strong>Repo</strong>
+              <span>{repository.fullName}</span>
             </div>
           ))}
         </div>
       </article>
 
       <article className="panel span-12">
-        <h2>Quick Links</h2>
-        <div className="nav" style={{ marginTop: 0 }}>
-          <Link href={`/w/${workspace.slug}/repositories`}>Manage Repositories</Link>
-          <Link href={`/w/${workspace.slug}/rules`}>Manage Rules</Link>
-          <Link href={`/w/${workspace.slug}/pull-requests`}>View Pull Requests</Link>
-          <Link href={`/w/${workspace.slug}/settings/members`}>Manage Members</Link>
-          <Link href={`/w/${workspace.slug}/settings/audit`}>Audit Log</Link>
+        <div className="section-head">
+          <h2>Quick Links</h2>
+          <p>Current active members: {members.members.length}</p>
         </div>
-        <p className="muted" style={{ marginTop: 12 }}>
-          Current active members: {members.members.length}
-        </p>
+        <div className="route-list">
+          <div className="route-item">
+            <Link className="muted-link" href={`/w/${workspace.slug}/repositories`}>
+              Manage Repositories
+            </Link>
+          </div>
+          <div className="route-item">
+            <Link className="muted-link" href={`/w/${workspace.slug}/rules`}>
+              Manage Rules
+            </Link>
+          </div>
+          <div className="route-item">
+            <Link className="muted-link" href={`/w/${workspace.slug}/pull-requests`}>
+              View Pull Requests
+            </Link>
+          </div>
+          <div className="route-item">
+            <Link className="muted-link" href={`/w/${workspace.slug}/settings/members`}>
+              Manage Members
+            </Link>
+          </div>
+          <div className="route-item">
+            <Link className="muted-link" href={`/w/${workspace.slug}/settings/audit`}>
+              Audit Log
+            </Link>
+          </div>
+        </div>
       </article>
     </>
   );

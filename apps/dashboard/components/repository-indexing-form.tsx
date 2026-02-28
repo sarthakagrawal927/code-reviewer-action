@@ -21,7 +21,10 @@ export function RepositoryIndexingForm({
 
   return (
     <section className="panel">
-      <h2>Indexing Trigger</h2>
+      <div className="section-head">
+        <h2>Indexing Trigger</h2>
+        <p>Queue job</p>
+      </div>
       <p className="muted">Queue indexing runs per connected repository.</p>
       <div className="stack">
         <div className="form-grid">
@@ -75,7 +78,7 @@ export function RepositoryIndexingForm({
           </button>
         </div>
 
-        {status ? <pre>{status}</pre> : null}
+        {status ? <pre className="response-pre">{status}</pre> : null}
       </div>
     </section>
   );

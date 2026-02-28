@@ -21,7 +21,10 @@ export default async function WorkspaceRepositoriesPage({
   return (
     <>
       <article className="panel span-12">
-        <h2>Connected Repositories</h2>
+        <div className="section-head">
+          <h2>Connected Repositories</h2>
+          <p>Inventory and installation linkage</p>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>

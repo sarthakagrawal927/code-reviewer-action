@@ -12,7 +12,10 @@ export function WorkspaceCreateForm() {
 
   return (
     <section className="panel">
-      <h2>Create Workspace</h2>
+      <div className="section-head">
+        <h2>Create Workspace</h2>
+        <p>Organization or personal</p>
+      </div>
       <p className="muted">Create an organization or personal workspace and become owner.</p>
       <div className="stack">
         <div className="form-grid">

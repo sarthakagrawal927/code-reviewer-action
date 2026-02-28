@@ -25,6 +25,7 @@ export default async function WorkspaceLayout({
   return (
     <main className="shell">
       <section className="hero">
+        <span className="eyebrow">Workspace</span>
         <div className="topbar">
           <div>
             <h1>{workspace.name}</h1>

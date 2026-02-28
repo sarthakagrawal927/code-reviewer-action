@@ -22,6 +22,7 @@ export default async function OnboardingPage() {
   return (
     <main className="shell">
       <section className="hero">
+        <span className="eyebrow">Workspace Setup</span>
         <div className="topbar">
           <div>
             <h1>Onboarding</h1>
@@ -33,15 +34,18 @@ export default async function OnboardingPage() {
 
       <section className="grid">
         <article className="panel span-12">
-          <h2>Existing Workspaces</h2>
+          <div className="section-head">
+            <h2>Existing Workspaces</h2>
+            <p>Jump back into any connected environment.</p>
+          </div>
           {workspacesResponse.workspaces.length === 0 ? (
-            <p className="muted">No workspace yet. Create one below.</p>
+            <div className="empty-state">No workspace yet. Create one below.</div>
           ) : (
-            <div className="stack">
+            <div className="route-list">
               {workspacesResponse.workspaces.map(workspace => (
-                <div key={workspace.id}>
-                  <Link href={`/w/${workspace.slug}/overview`}>
-                    {workspace.name} <span className="muted">({workspace.role})</span>
+                <div key={workspace.id} className="route-item">
+                  <Link className="muted-link" href={`/w/${workspace.slug}/overview`}>
+                    {workspace.name} ({workspace.role})
                   </Link>
                 </div>
               ))}

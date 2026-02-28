@@ -4,7 +4,7 @@ export function WorkspaceNav({ workspaceSlug }: { workspaceSlug: string }) {
   const prefix = `/w/${workspaceSlug}`;
 
   return (
-    <nav className="nav">
+    <nav className="workspace-nav">
       <Link href={`${prefix}/overview`}>Overview</Link>
       <Link href={`${prefix}/repositories`}>Repositories</Link>
       <Link href={`${prefix}/rules`}>Rules</Link>

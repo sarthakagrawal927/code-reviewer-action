@@ -24,8 +24,17 @@ export default async function WorkspaceMembersPage({
 
   return (
     <>
+      <article className="page-card span-12">
+        <h2 className="page-title">Members and Access</h2>
+        <p className="page-subtitle">
+          View active users, invite collaborators, and update role or status with workspace-scoped RBAC.
+        </p>
+      </article>
       <article className="panel span-12">
-        <h2>Active Membership</h2>
+        <div className="section-head">
+          <h2>Active Membership</h2>
+          <p>{membersResponse.members.length} members</p>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>

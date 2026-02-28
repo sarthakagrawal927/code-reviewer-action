@@ -43,8 +43,17 @@ export default async function WorkspacePullRequestsPage({
 
   return (
     <>
+      <article className="page-card span-12">
+        <h2 className="page-title">Pull Request Operations</h2>
+        <p className="page-subtitle">
+          Monitor ingested pull requests and trigger manual re-reviews for validation or policy updates.
+        </p>
+      </article>
       <article className="panel span-12">
-        <h2>Pull Requests</h2>
+        <div className="section-head">
+          <h2>Pull Requests</h2>
+          <p>{pullRequests.length} tracked</p>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>

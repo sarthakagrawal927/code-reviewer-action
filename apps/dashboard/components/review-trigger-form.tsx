@@ -15,7 +15,10 @@ export function ReviewTriggerForm({ pullRequests }: { pullRequests: PullRequestO
 
   return (
     <section className="panel">
-      <h2>Manual Re-Review Trigger</h2>
+      <div className="section-head">
+        <h2>Manual Re-Review Trigger</h2>
+        <p>Run targeted checks</p>
+      </div>
       <div className="stack">
         <div>
           <label htmlFor="pull-request-id">Pull Request</label>
@@ -60,7 +63,7 @@ export function ReviewTriggerForm({ pullRequests }: { pullRequests: PullRequestO
           </button>
         </div>
 
-        {status ? <pre>{status}</pre> : null}
+        {status ? <pre className="response-pre">{status}</pre> : null}
       </div>
     </section>
   );

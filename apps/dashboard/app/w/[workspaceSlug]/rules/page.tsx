@@ -21,12 +21,20 @@ export default async function WorkspaceRulesPage({
   ]);
 
   return (
-    <article className="span-12">
-      <WorkspaceRulesForm
-        workspaceId={workspace.id}
-        initialConfig={workspaceRules.config}
-        repositories={repositories.repositories}
-      />
-    </article>
+    <>
+      <article className="page-card span-12">
+        <h2 className="page-title">Rule Configuration</h2>
+        <p className="page-subtitle">
+          Manage workspace defaults and repository-level overrides with versioned JSON policy settings.
+        </p>
+      </article>
+      <article className="span-12">
+        <WorkspaceRulesForm
+          workspaceId={workspace.id}
+          initialConfig={workspaceRules.config}
+          repositories={repositories.repositories}
+        />
+      </article>
+    </>
   );
 }

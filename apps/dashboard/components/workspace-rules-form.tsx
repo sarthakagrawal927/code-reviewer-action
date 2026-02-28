@@ -40,7 +40,10 @@ export function WorkspaceRulesForm({
   return (
     <div className="stack">
       <section className="panel">
-        <h2>Workspace Default Rules</h2>
+        <div className="section-head">
+          <h2>Workspace Default Rules</h2>
+          <p>Base policy</p>
+        </div>
         <label htmlFor="workspace-rules-json">Rule Config JSON</label>
         <textarea id="workspace-rules-json" value={workspaceJson} onChange={event => setWorkspaceJson(event.target.value)} />
         <div className="button-row">
@@ -69,7 +72,10 @@ export function WorkspaceRulesForm({
       </section>
 
       <section className="panel">
-        <h2>Repository Rule Override</h2>
+        <div className="section-head">
+          <h2>Repository Rule Override</h2>
+          <p>Per-repo policy</p>
+        </div>
         <div className="form-grid">
           <div>
             <label htmlFor="repository-id">Repository</label>
@@ -120,7 +126,7 @@ export function WorkspaceRulesForm({
         </div>
       </section>
 
-      {status ? <pre>{status}</pre> : null}
+      {status ? <pre className="response-pre">{status}</pre> : null}
     </div>
   );
 }
