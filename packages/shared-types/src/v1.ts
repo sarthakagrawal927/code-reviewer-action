@@ -433,12 +433,19 @@ export type ReviewTriggerPayload = {
 
 export type ReviewJob = {
   kind: 'review';
-  payload: ReviewTriggerPayload;
+  payload: {
+    reviewRunId?: string;
+    repositoryId: string;
+    prNumber: number;
+    headSha: string;
+    triggeredBy: 'webhook' | 'manual' | 'action';
+  };
 };
 
 export type IndexingJob = {
   kind: 'indexing';
   payload: {
+    indexingRunId?: string;
     repositoryId: string;
     sourceRef?: string;
   };

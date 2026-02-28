@@ -1,6 +1,6 @@
 import { loadReviewWorkerConfig } from './config';
 import { handleJob } from './handlers';
-import { createDefaultSeedJobs, InMemoryQueueAdapter } from './queue';
+import { createDefaultSeedJobs, InMemoryQueueAdapter, PostgresQueueAdapter } from './queue';
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -45,7 +45,9 @@ async function processJobWithRetry(
 
 async function run() {
   const config = loadReviewWorkerConfig();
-  const queue = new InMemoryQueueAdapter(createDefaultSeedJobs());
+  const queue = config.cockroachDatabaseUrl
+    ? new PostgresQueueAdapter(config.cockroachDatabaseUrl)
+    : new InMemoryQueueAdapter(createDefaultSeedJobs());
 
   console.log(
     `[worker-review] started pollIntervalMs=${config.pollIntervalMs} ` +
