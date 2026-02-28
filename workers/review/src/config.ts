@@ -79,6 +79,10 @@ export function loadReviewWorkerConfig(): ReviewWorkerConfig {
     throw new Error(`Invalid INDEX_MAX_CHUNK_LINES: "${indexMaxChunkLinesRaw}".`);
   }
 
+  if (!aiGatewayModel) {
+    throw new Error('AI_GATEWAY_MODEL must not be empty.');
+  }
+
   return {
     pollIntervalMs,
     maxIterations,

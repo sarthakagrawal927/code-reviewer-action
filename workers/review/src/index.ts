@@ -53,7 +53,11 @@ async function run() {
       `retryBaseMs=${config.retryBaseDelayMs} retryMaxMs=${config.retryMaxDelayMs} ` +
       `reviewQueue=${config.reviewQueueName} indexingQueue=${config.indexingQueueName} ` +
       `indexMaxFileBytes=${config.maxIndexFileBytes} ` +
-      `indexChunkStrategy=${config.indexChunkStrategy} indexMaxChunkLines=${config.indexMaxChunkLines}`
+      `indexChunkStrategy=${config.indexChunkStrategy} indexMaxChunkLines=${config.indexMaxChunkLines} ` +
+      `aiGateway=${config.aiGatewayBaseUrl || 'unset'} ` +
+      `model=${config.aiGatewayModel} ` +
+      `db=${config.cockroachDatabaseUrl ? 'configured' : 'in-memory'} ` +
+      `githubApp=${config.githubAppId || 'unset'}`
   );
 
   for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
