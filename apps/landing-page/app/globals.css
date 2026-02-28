@@ -406,6 +406,7 @@ pre {
   color: var(--muted);
   max-width: 70ch;
   line-height: 1.72;
+  text-wrap: pretty;
 }
 
 .grid {
@@ -488,6 +489,35 @@ pre {
   margin: 0;
   color: var(--muted);
   line-height: 1.68;
+}
+
+.reliability-grid {
+  margin-top: 1.6rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem;
+}
+
+.reliability-card {
+  border-radius: 1rem;
+  border: 1px solid rgb(13 23 43 / 12%);
+  background: linear-gradient(165deg, #fff, #f7fbff 82%);
+  box-shadow: 0 14px 28px rgb(20 45 84 / 10%);
+  padding: 1.08rem;
+}
+
+.reliability-card h3 {
+  margin: 0 0 0.42rem;
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+  font-size: 1.04rem;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.reliability-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.66;
 }
 
 .workflow {
@@ -648,7 +678,8 @@ pre {
 @media (max-width: 1040px) {
   .hero,
   .grid,
-  .workflow {
+  .workflow,
+  .reliability-grid {
     grid-template-columns: 1fr;
   }
 

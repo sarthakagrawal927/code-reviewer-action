@@ -2,19 +2,19 @@ import Image from "next/image";
 
 const stats = [
   {
-    value: "92%",
-    title: "High-signal comments",
-    body: "Findings stay mapped to changed lines, so reviewers avoid generic noise.",
+    value: "Line-mapped",
+    title: "Grounded findings",
+    body: "Comments stay tied to changed lines and pull request context.",
   },
   {
-    value: "< 1m",
-    title: "Fast feedback loop",
-    body: "Pull request review starts quickly with context-aware analysis and severity.",
+    value: "Policy-aware",
+    title: "Configurable gates",
+    body: "Fail CI on findings and severity thresholds defined by your rules.",
   },
   {
-    value: "3 layers",
-    title: "Built for control",
-    body: "Action workflow now, policy rules next, dashboard controls after that.",
+    value: "Enterprise v1",
+    title: "Control plane architecture",
+    body: "Action trigger, workspace rules, auditability, and operational controls.",
   },
 ];
 
@@ -28,14 +28,14 @@ const features = [
   {
     id: "02",
     tag: "Intelligence",
-    title: "Practical code review output",
-    body: "AI returns line-level findings, severity, and direct fix guidance that engineers can act on in one pass.",
+    title: "Actionable review output",
+    body: "AI returns line-level findings, severity, and practical remediation guidance for each issue.",
   },
   {
     id: "03",
     tag: "Control plane",
-    title: "Rules and indexing roadmap",
-    body: "The next release extends to org rule packs, richer indexing, and dashboard-managed policy toggles.",
+    title: "Rules and indexing expansion",
+    body: "The next milestone extends org rule packs, deeper indexing, and dashboard-managed policy toggles.",
   },
 ];
 
@@ -48,12 +48,31 @@ const workflowSteps = [
   {
     label: "Step 2",
     title: "Run review intelligence",
-    body: "Generate actionable findings per changed region with clear severity and implementation advice.",
+    body: "Generate actionable findings per changed region with clear severity and fix guidance.",
   },
   {
     label: "Step 3",
     title: "Enforce release policy",
     body: "Post inline comments and fail CI based on your threshold or severity gates.",
+  },
+];
+
+const reliabilityCards = [
+  {
+    title: "Webhook integrity",
+    body: "GitHub delivery IDs are tracked for idempotency, with signature validation for trusted ingestion.",
+  },
+  {
+    title: "Auditable operations",
+    body: "Workspace actions are stored in audit logs for change traceability and operational review.",
+  },
+  {
+    title: "Policy determinism",
+    body: "Workspace defaults and repository overrides are versioned and applied consistently per run.",
+  },
+  {
+    title: "Flexible persistence",
+    body: "Cockroach/Postgres-backed control-plane storage with in-memory fallback for local development.",
   },
 ];
 
@@ -68,10 +87,8 @@ jobs:
       - name: AI Code Reviewer
         uses: sarthakagrawal927/code-reviewer-action@v1
         with:
-          openai_api_key: \${{ secrets.OPENAI_API_KEY }}
-          github_token: \${{ secrets.GITHUB_TOKEN }}
-          fail_on_findings: "true"
-          fail_on_severity: "high"`;
+          platform_base_url: \${{ secrets.CODE_REVIEWER_PLATFORM_BASE_URL }}
+          platform_token: \${{ secrets.CODE_REVIEWER_PLATFORM_TOKEN }}`;
 
 export default function HomePage() {
   const currentYear = new Date().getFullYear();
@@ -108,14 +125,13 @@ export default function HomePage() {
       <main id="home" className="wrap page-shell">
         <section className="hero">
           <div className="hero-copy">
-            <span className="kicker">GitHub Action + OpenAI</span>
+            <span className="kicker">GitHub Action + Enterprise Control Plane</span>
             <h1>
-              Code review that feels like a staff engineer in your CI loop.
+              Professional AI code review, designed for engineering teams.
             </h1>
             <p>
-              Sarthak AI Code Reviewer aligns with your delivery plan: reliable
-              diff context first, high-signal findings second, and policy
-              control expansion next.
+              Sarthak AI Code Reviewer is built around reliable diff context,
+              practical findings, and deterministic policy enforcement in CI.
             </p>
             <div className="hero-actions">
               <a
@@ -136,9 +152,9 @@ export default function HomePage() {
               </a>
             </div>
             <div className="hero-pills">
-              <span>Inline findings</span>
-              <span>Severity aware</span>
-              <span>Policy ready</span>
+              <span>Line-level findings</span>
+              <span>Severity-aware checks</span>
+              <span>Workspace policy rules</span>
             </div>
           </div>
 
@@ -158,11 +174,11 @@ export default function HomePage() {
               <div className="panel-footer">
                 <article>
                   <strong>29 files</strong>
-                  <span>PR context indexed</span>
+                  <span>Diff context captured</span>
                 </article>
                 <article>
                   <strong>6 findings</strong>
-                  <span>Actionable in thread</span>
+                  <span>Posted inline in PR</span>
                 </article>
               </div>
             </div>
@@ -198,9 +214,9 @@ export default function HomePage() {
         </section>
 
         <section className="section" id="features">
-          <h2>Roadmap alignment by design, not marketing copy.</h2>
+          <h2>Built to mirror how real teams ship software.</h2>
           <p className="section-lead">
-            The interface maps directly to how the product ships: context
+            The product is structured around operational sequence: context
             capture, intelligent review output, then policy and indexing depth.
           </p>
 
@@ -222,11 +238,31 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="section" id="workflow">
-          <h2>Execution flow across planned milestones</h2>
+        <section className="section" id="reliability">
+          <h2>Operational reliability for production workflows</h2>
           <p className="section-lead">
-            A lightweight sequence that maps clearly from pull request event to
-            reviewer action and policy enforcement.
+            Core platform behaviors are designed for trust: secure ingestion,
+            policy determinism, and audit-friendly operations.
+          </p>
+          <div className="reliability-grid">
+            {reliabilityCards.map((card, index) => (
+              <article
+                className="reliability-card fade-up"
+                key={card.title}
+                style={{ "--delay": `${100 + index * 90}ms` }}
+              >
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="section" id="workflow">
+          <h2>Execution flow from event to enforcement</h2>
+          <p className="section-lead">
+            A clear sequence from pull request event to reviewer output and
+            policy gate decision.
           </p>
 
           <div className="workflow">
@@ -245,11 +281,11 @@ export default function HomePage() {
         </section>
 
         <section className="cta">
-          <h3>Ship the action now. Expand policy control next.</h3>
+          <h3>Start with actionable review. Scale with policy control.</h3>
           <p>
-            This release gives your team high-quality pull request feedback in
-            CI today and cleanly sets up the dashboard policy plane for the next
-            milestone.
+            This release gives your team high-quality pull request feedback in CI
+            today and sets up a clean path to broader policy controls in the
+            next milestone.
           </p>
           <a
             className="btn btn-primary"
