@@ -5,7 +5,7 @@ import {
   REVIEW_SEVERITIES,
   ReviewFinding,
   ReviewSeverity
-} from '../../shared-types/src';
+} from '@code-reviewer/shared-types';
 
 const MAX_DIFF_CHARS = 120000;
 const REQUEST_TIMEOUT_MS = 120000;

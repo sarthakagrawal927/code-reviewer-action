@@ -1,4 +1,4 @@
-import { GatewayConfig, GatewayReviewRequest, GatewayReviewResponse } from '../../shared-types/src';
+import { GatewayConfig, GatewayReviewRequest, GatewayReviewResponse } from '@code-reviewer/shared-types';
 import { reviewDiffWithOpenAICompatibleGateway } from './openaiCompatible';
 
 export class AIGatewayClient {

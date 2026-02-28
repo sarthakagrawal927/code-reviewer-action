@@ -1,4 +1,4 @@
-import { loadReviewWorkerConfig } from './config';
+import { loadReviewWorkerConfig, ReviewWorkerConfig } from './config';
 import { handleJob } from './handlers';
 import { createDefaultSeedJobs, InMemoryQueueAdapter, PostgresQueueAdapter } from './queue';
 
@@ -18,13 +18,19 @@ async function processJobWithRetry(
   indexChunkStrategy: 'tree-sitter',
   indexMaxChunkLines: number,
   retryBaseDelayMs: number,
-  retryMaxDelayMs: number
+  retryMaxDelayMs: number,
+  workerConfig: ReviewWorkerConfig
 ): Promise<void> {
   let attempt = 0;
 
   while (true) {
     try {
-      await handleJob(job, { maxIndexFileBytes, indexChunkStrategy, indexMaxChunkLines });
+      await handleJob(job, {
+        maxIndexFileBytes,
+        indexChunkStrategy,
+        indexMaxChunkLines,
+        workerConfig,
+      });
       return;
     } catch (error) {
       if (attempt >= maxRetries) {
@@ -97,7 +103,8 @@ async function run() {
             config.indexChunkStrategy,
             config.indexMaxChunkLines,
             config.retryBaseDelayMs,
-            config.retryMaxDelayMs
+            config.retryMaxDelayMs,
+            config
           );
         } catch (error) {
           console.error(
