@@ -12,7 +12,13 @@ export function getPlatformApiBaseUrl(): string {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
+const DEV_BYPASS = process.env.NODE_ENV === 'development' && process.env.DEV_BYPASS === 'true';
+
 export async function platformFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  if (DEV_BYPASS) {
+    return devMock<T>(path);
+  }
+
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
   const response = await fetch(`${getPlatformApiBaseUrl()}${path}`, {
@@ -38,6 +44,15 @@ export async function platformFetch<T>(path: string, init?: RequestInit): Promis
   return payload as T;
 }
 
+function devMock<T>(path: string): T {
+  if (path.includes('/repositories')) return { repositories: [] } as T;
+  if (path.includes('/installations')) return { installations: [] } as T;
+  if (path.includes('/members')) return { members: [] } as T;
+  if (path.includes('/pull-requests')) return { pullRequests: [] } as T;
+  if (path.includes('/workspaces')) return { workspaces: [] } as T;
+  return {} as T;
+}
+
 export async function getSession(): Promise<AuthSessionResponse> {
   try {
     return await platformFetch<AuthSessionResponse>('/v1/auth/session');
@@ -51,6 +66,9 @@ export async function getSession(): Promise<AuthSessionResponse> {
 }
 
 export async function getWorkspaceBySlug(slug: string): Promise<(WorkspaceRecord & { role: string }) | null> {
+  if (DEV_BYPASS) {
+    return { id: 'dev-id', slug, name: slug, role: 'owner' } as WorkspaceRecord & { role: string };
+  }
   const data = await platformFetch<{ workspaces: Array<WorkspaceRecord & { role: string }> }>('/v1/workspaces');
   return data.workspaces.find(item => item.slug === slug) || null;
 }
