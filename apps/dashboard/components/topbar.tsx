@@ -43,15 +43,9 @@ export function Topbar({ workspaceSlug }: TopbarProps) {
         🔔
       </button>
 
-      <a
-        href="https://docs.github.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="topbar-icon-btn"
-        aria-label="Help"
-      >
+      <button className="topbar-icon-btn" aria-label="Help" type="button">
         ?
-      </a>
+      </button>
     </header>
   );
 }

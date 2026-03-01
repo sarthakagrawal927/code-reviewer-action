@@ -1823,6 +1823,22 @@ button:disabled {
 
 .muted-link:hover { text-decoration: underline; }
 
+.quick-link {
+  display: block;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 140ms ease, color 140ms ease;
+  background: transparent;
+}
+
+.quick-link:hover {
+  background: var(--bg-card-hover);
+  color: var(--text);
+}
+
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: 10px;

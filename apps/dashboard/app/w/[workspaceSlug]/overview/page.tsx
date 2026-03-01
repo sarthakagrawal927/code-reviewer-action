@@ -301,25 +301,7 @@ export default async function WorkspaceOverviewPage({
                 { label: 'Manage Members', href: `/w/${workspaceSlug}/settings/members` },
                 { label: 'Audit Log', href: `/w/${workspaceSlug}/settings/audit` },
               ].map(link => (
-                <Link key={link.href} href={link.href} style={{
-                  display: 'block',
-                  padding: '7px 10px',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: 'var(--text-muted)',
-                  textDecoration: 'none',
-                  transition: 'background 140ms ease, color 140ms ease',
-                  background: 'transparent'
-                }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-card-hover)';
-                    (e.currentTarget as HTMLElement).style.color = 'var(--text)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
-                    (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
-                  }}
-                >
+                <Link key={link.href} href={link.href} className="quick-link">
                   {link.label} →
                 </Link>
               ))}
