@@ -1,4 +1,4 @@
-import { createControlPlaneDatabase } from '@code-reviewer/db';
+import { ControlPlaneDatabase, createControlPlaneDatabase } from '@code-reviewer/db';
 import { AIGatewayClient } from '@code-reviewer/ai-gateway-client';
 import { IndexingJob, ReviewJob, WorkerJob } from '@code-reviewer/shared-types';
 import {
@@ -19,6 +19,7 @@ type HandlerConfig = {
   indexChunkStrategy: 'tree-sitter';
   indexMaxChunkLines: number;
   workerConfig: ReviewWorkerConfig;
+  db?: ControlPlaneDatabase;
 };
 
 // Score: 100 minus weighted penalties per finding
@@ -49,9 +50,9 @@ async function handleIndexingJob(job: IndexingJob, config: HandlerConfig): Promi
   );
 
   if (indexingRunId && config.workerConfig.cockroachDatabaseUrl) {
-    const db = createControlPlaneDatabase({
-      cockroachDatabaseUrl: config.workerConfig.cockroachDatabaseUrl,
-    });
+    const db =
+      config.db ??
+      createControlPlaneDatabase({ cockroachDatabaseUrl: config.workerConfig.cockroachDatabaseUrl });
     await db.updateIndexingRun(indexingRunId, {
       status: 'completed',
       completedAt: nowIso(),
@@ -76,7 +77,8 @@ async function handleReviewJob(job: ReviewJob, config: HandlerConfig): Promise<v
     return;
   }
 
-  const db = createControlPlaneDatabase({ cockroachDatabaseUrl: wc.cockroachDatabaseUrl });
+  const db =
+    config.db ?? createControlPlaneDatabase({ cockroachDatabaseUrl: wc.cockroachDatabaseUrl });
 
   // 1. Load repository
   const repository = await db.getRepositoryById(repositoryId);
@@ -131,26 +133,34 @@ async function handleReviewJob(job: ReviewJob, config: HandlerConfig): Promise<v
 
   // 5. Write findings + update run
   if (reviewRunId) {
-    await Promise.all(
-      findings.map(finding =>
-        db.addReviewFinding({
-          reviewRunId,
-          severity: finding.severity,
-          title: finding.title,
-          summary: finding.summary,
-          filePath: finding.filePath,
-          line: finding.line,
-          confidence: finding.confidence,
-        })
-      )
-    );
-
-    await db.updateReviewRun(reviewRunId, {
-      status: 'completed',
-      scoreComposite,
-      findingsCount: findings.length,
-      completedAt: nowIso(),
-    });
+    try {
+      await Promise.all(
+        findings.map(finding =>
+          db.addReviewFinding({
+            reviewRunId,
+            severity: finding.severity,
+            title: finding.title,
+            summary: finding.summary,
+            filePath: finding.filePath,
+            line: finding.line,
+            confidence: finding.confidence,
+          })
+        )
+      );
+      await db.updateReviewRun(reviewRunId, {
+        status: 'completed',
+        scoreComposite,
+        findingsCount: findings.length,
+        completedAt: nowIso(),
+      });
+    } catch (err) {
+      await db.updateReviewRun(reviewRunId, {
+        status: 'failed',
+        errorMessage: err instanceof Error ? err.message : String(err),
+        completedAt: nowIso(),
+      });
+      throw err;
+    }
   }
 
   // 6. Post PR review comments (only anchored findings)
@@ -163,16 +173,25 @@ async function handleReviewJob(job: ReviewJob, config: HandlerConfig): Promise<v
     }));
 
   const overallBody = buildOverallBody(findings, scoreComposite);
-  await postPrReview(
-    installToken,
-    owner,
-    repoName,
-    prNumber,
-    headSha,
-    anchoredComments,
-    overallBody,
-    wc.githubApiBaseUrl
-  );
+  try {
+    await postPrReview(
+      installToken,
+      owner,
+      repoName,
+      prNumber,
+      headSha,
+      anchoredComments,
+      overallBody,
+      wc.githubApiBaseUrl
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[worker-review] postPrReview failed pr=${prNumber}: ${msg}`);
+    // Update errorMessage but keep status=completed (DB findings are written)
+    if (reviewRunId) {
+      await db.updateReviewRun(reviewRunId, { errorMessage: `GitHub comment post failed: ${msg}` });
+    }
+  }
 
   console.log(
     `[worker-review] review completed repository=${repository.fullName} pr=${prNumber} ` +

@@ -1,3 +1,4 @@
+import { createControlPlaneDatabase } from '@code-reviewer/db';
 import { loadReviewWorkerConfig, ReviewWorkerConfig } from './config';
 import { handleJob } from './handlers';
 import { createDefaultSeedJobs, InMemoryQueueAdapter, PostgresQueueAdapter } from './queue';
@@ -19,7 +20,8 @@ async function processJobWithRetry(
   indexMaxChunkLines: number,
   retryBaseDelayMs: number,
   retryMaxDelayMs: number,
-  workerConfig: ReviewWorkerConfig
+  workerConfig: ReviewWorkerConfig,
+  db?: ReturnType<typeof createControlPlaneDatabase>
 ): Promise<void> {
   let attempt = 0;
 
@@ -30,6 +32,7 @@ async function processJobWithRetry(
         indexChunkStrategy,
         indexMaxChunkLines,
         workerConfig,
+        db,
       });
       return;
     } catch (error) {
@@ -54,6 +57,10 @@ async function run() {
   const queue = config.cockroachDatabaseUrl
     ? new PostgresQueueAdapter(config.cockroachDatabaseUrl)
     : new InMemoryQueueAdapter(createDefaultSeedJobs());
+
+  const db = config.cockroachDatabaseUrl
+    ? createControlPlaneDatabase({ cockroachDatabaseUrl: config.cockroachDatabaseUrl })
+    : undefined;
 
   console.log(
     `[worker-review] started pollIntervalMs=${config.pollIntervalMs} ` +
@@ -104,7 +111,8 @@ async function run() {
             config.indexMaxChunkLines,
             config.retryBaseDelayMs,
             config.retryMaxDelayMs,
-            config
+            config,
+            db
           );
         } catch (error) {
           console.error(
