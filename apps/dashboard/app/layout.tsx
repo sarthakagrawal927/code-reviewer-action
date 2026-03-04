@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Theme } from '@radix-ui/themes';
+import { SaaSMakerFeedback } from '../components/saasmaker-feedback';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
 
@@ -18,7 +20,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="large" scaling="100%">
           {children}
+          <SaaSMakerFeedback />
         </Theme>
+        <Script
+          src="https://unpkg.com/@saas-maker/analytics-sdk@0.2.0/dist/index.global.js"
+          data-project={process.env.NEXT_PUBLIC_SAASMAKER_API_KEY}
+          data-api="https://api.sassmaker.com"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
