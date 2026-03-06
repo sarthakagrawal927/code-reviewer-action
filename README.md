@@ -16,58 +16,20 @@ Enterprise control plane for GitHub-backed PR review automation.
 - Next.js multi-page dashboard (`apps/dashboard`)
 - Shared DB package (`packages/db`) with Cockroach/Postgres schema + migrations + typed adapters
 
-## GitHub Action Quickstart (v1)
-
-```yaml
-name: Trigger Enterprise Review
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: sarthakagrawal927/code-reviewer-action@v1
-        with:
-          platform_base_url: ${{ secrets.CODE_REVIEWER_PLATFORM_BASE_URL }}
-          platform_token: ${{ secrets.CODE_REVIEWER_PLATFORM_TOKEN }}
-```
-
-## Action Inputs
-
-| Input | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `platform_base_url` | Yes | N/A | Platform API base URL |
-| `platform_token` | Yes | N/A | Bearer token used for `/v1/actions/reviews/trigger` |
-| `workflow_run_id` | No | `${{ github.run_id }}` fallback | Optional run id for traceability |
-| `request_timeout_ms` | No | `15000` | API timeout in milliseconds |
-
-Deprecated legacy v0 gateway inputs are intentionally rejected with a migration error.
-
 ## Monorepo Layout
 
 ```text
 .
-├── action.yml
-├── src/
-├── dist/
 ├── apps/
 │   ├── dashboard/
 │   └── landing-page/
 ├── packages/
 │   ├── shared-types/
 │   ├── db/
-│   ├── ai-gateway-client/
-│   └── review-core/
+│   └── ai-gateway-client/
 ├── workers/
 │   ├── api/
 │   └── review/
-└── docs/
 ```
 
 ## Build and Test
@@ -108,7 +70,4 @@ Root `.vercel/project.json` points to `landing-page`. Dashboard and landing page
 
 ## Roadmap Docs
 
-- v0 details: `docs/v0-lite.md`
-- v1 plan: `docs/v1-roadmap.md`
-- v1 technical decisions: `docs/v1-technical-questions.md`
 - v2 plan: `docs/v2-roadmap.md`
