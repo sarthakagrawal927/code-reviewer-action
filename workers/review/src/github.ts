@@ -150,6 +150,54 @@ export async function getPrFiles(
   );
 }
 
+// ── Repo tree & file content (for indexing) ──────────────────────────────────
+
+export type GitHubTreeEntry = {
+  path: string;
+  sha: string;
+  size: number;
+  type: string;
+};
+
+export async function getRepoTree(
+  token: string,
+  owner: string,
+  repo: string,
+  ref: string,
+  apiBaseUrl?: string
+): Promise<GitHubTreeEntry[]> {
+  const result = await githubFetch<{ tree: Array<{ path: string; sha: string; size?: number; type: string }> }>(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+    token,
+    { baseUrl: apiBaseUrl }
+  );
+  return result.tree.map((e) => ({
+    path: e.path,
+    sha: e.sha,
+    size: e.size ?? 0,
+    type: e.type,
+  }));
+}
+
+export async function getFileContent(
+  token: string,
+  owner: string,
+  repo: string,
+  sha: string,
+  apiBaseUrl?: string
+): Promise<string> {
+  const result = await githubFetch<{ content: string; encoding: string }>(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${encodeURIComponent(sha)}`,
+    token,
+    { baseUrl: apiBaseUrl }
+  );
+  if (result.encoding === 'base64') {
+    const cleaned = result.content.replace(/\s/g, '');
+    return atob(cleaned);
+  }
+  return result.content;
+}
+
 export async function postPrReview(
   token: string,
   owner: string,

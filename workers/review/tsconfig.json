@@ -10,5 +10,5 @@
     "types": ["@cloudflare/workers-types"]
   },
   "include": ["src/**/*"],
-  "exclude": ["src/indexing.ts", "src/tree-sitter-languages.d.ts"]
+  "exclude": []
 }
