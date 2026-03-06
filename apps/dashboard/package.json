@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 4174",
-    "build": "next build",
+    "build": "cd ../.. && npm run build:types && cd apps/dashboard && next build",
     "start": "next start -p 4174"
   },
   "dependencies": {
