@@ -240,3 +240,6 @@ export async function reviewDiffWithOpenAICompatibleGateway(
     rawResponse
   };
 }
+
+// Exported for testing only
+export const _test = { coerceFinding, truncateDiff, buildPrompt, normalizeSeverity, normalizeBaseUrl };
